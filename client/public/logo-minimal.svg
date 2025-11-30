@@ -1,0 +1,43 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style>
+            .minimal-primary { fill: #4A90E2; }
+            .minimal-dark { fill: #2C3E50; }
+        </style>
+    </defs>
+    
+    <!-- Simple hexagon outline -->
+    <path d="M 60 15 L 95 37.5 L 95 82.5 L 60 105 L 25 82.5 L 25 37.5 Z" 
+          fill="none" 
+          stroke="#4A90E2" 
+          stroke-width="2" 
+          opacity="0.3"/>
+    
+    <!-- Arabic Letter ر (Ra) - Clean Minimal Style -->
+    <g transform="translate(60, 60)">
+        <!-- Main vertical line -->
+        <path d="M -12 -25 L -12 20" 
+              stroke="#2C3E50" 
+              stroke-width="6" 
+              stroke-linecap="round"
+              fill="none"/>
+        
+        <!-- Top curve -->
+        <path d="M -12 -25 Q 0 -30 12 -25 Q 20 -18 20 -8 Q 20 0 15 8" 
+              stroke="#4A90E2" 
+              stroke-width="6" 
+              stroke-linecap="round"
+              fill="none"/>
+        
+        <!-- Dot below -->
+        <circle cx="-5" cy="30" r="4" fill="#4A90E2"/>
+    </g>
+    
+    <!-- Simple corner accents -->
+    <circle cx="60" cy="15" r="3" fill="#4A90E2" opacity="0.4"/>
+    <circle cx="95" cy="37.5" r="2" fill="#4A90E2" opacity="0.3"/>
+    <circle cx="95" cy="82.5" r="2" fill="#4A90E2" opacity="0.3"/>
+    <circle cx="60" cy="105" r="3" fill="#4A90E2" opacity="0.4"/>
+    <circle cx="25" cy="82.5" r="2" fill="#4A90E2" opacity="0.3"/>
+    <circle cx="25" cy="37.5" r="2" fill="#4A90E2" opacity="0.3"/>
+</svg>

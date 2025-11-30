@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(set NODE_ENV=development)",
+      "Bash(npx tsx:*)",
+      "Bash(git init:*)",
+      "Bash(NODE_ENV=development npx tsx:*)",
+      "Bash(powershell -Command \"Get-ChildItem ''c:\\Users\\basel\\Downloads\\raqim_ai_966_v1.zip'' | Select-Object Name, Length, LastWriteTime\")",
+      "Bash(powershell -Command \"Get-ChildItem -Exclude ''node_modules'',''.git'' | Compress-Archive -DestinationPath ''../raqim_ai_966_v1.zip'' -Force\")",
+      "Bash(powershell -Command:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

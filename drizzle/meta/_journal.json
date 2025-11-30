@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1763198371444,
+      "tag": "0000_powerful_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1763199354164,
+      "tag": "0001_narrow_sphinx",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1763439916501,
+      "tag": "0002_natural_lorna_dane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1763440808923,
+      "tag": "0003_orange_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1763443299945,
+      "tag": "0004_kind_wendigo",
+      "breakpoints": true
+    }
+  ]
+}
