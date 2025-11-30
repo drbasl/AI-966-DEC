@@ -1,0 +1,96 @@
+========================================
+    حفظ مشروع رقيم AI 966
+========================================
+
+📁 الطريقة 1: النسخ اليدوي
+--------------------------------
+
+1. افتح File Explorer
+2. اذهب إلى هذا المسار:
+   C:\Users\basel\.claude-worktrees\raqim-ai-966-complete نسخه من مشروعي\youthful-yonath\raqim_ai_966-9999-full-master\raqim_ai_966-9999-full-master
+
+3. انسخ المجلد كله (Ctrl+C)
+4. الصق في المكان الذي تريد مثل:
+   C:\Users\basel\Desktop\raqim-ai-966
+   أو
+   D:\Projects\raqim-ai-966
+
+========================================
+
+💻 الطريقة 2: عبر Command Prompt
+--------------------------------
+
+افتح CMD واكتب:
+
+robocopy "C:\Users\basel\.claude-worktrees\raqim-ai-966-complete نسخه من مشروعي\youthful-yonath\raqim_ai_966-9999-full-master\raqim_ai_966-9999-full-master" "C:\Users\basel\Desktop\raqim-ai-966" /E /XD node_modules dist .pnpm-store
+
+========================================
+
+🌐 الطريقة 3: رفع على GitHub
+--------------------------------
+
+1. اذهب إلى: https://github.com/new
+
+2. أنشئ repository جديد:
+   - الاسم: raqim-ai-966
+   - الوصف: منصة عربية متكاملة لتوليد البرومبتات الذكية
+   - اختر Public أو Private
+
+3. افتح PowerShell في مجلد المشروع واكتب:
+
+   git remote add origin https://github.com/YOUR_USERNAME/raqim-ai-966.git
+   git branch -M main
+   git push -u origin main
+
+========================================
+
+📦 ملفات المشروع المحفوظة
+--------------------------------
+
+✅ الكود الكامل (172 ملف)
+✅ README.md احترافي
+✅ DEPLOYMENT.md - دليل النشر
+✅ API_INTEGRATION_GUIDE.md - دليل API
+✅ .env.example - ملف البيئة
+✅ package.json - الاعتماديات
+✅ dist/ - Build جاهز للإنتاج
+✅ server/ - Backend كامل
+✅ client/ - Frontend كامل
+✅ drizzle/ - قاعدة البيانات
+
+========================================
+
+🎯 بعد الحفظ - كيف تشغل المشروع
+--------------------------------
+
+1. افتح Terminal في مجلد المشروع
+
+2. ثبت الاعتماديات:
+   pnpm install
+
+3. أضف API keys في .env:
+   DEEPSEEK_API_KEY=your-key-here
+
+4. دفع قاعدة البيانات:
+   pnpm db:push
+
+5. شغل المشروع:
+   pnpm dev
+
+6. افتح المتصفح:
+   http://localhost:5173
+
+========================================
+
+📞 الدعم
+--------------------------------
+
+تيليجرام: @dr_basl
+تويتر: @hzbr_al
+
+========================================
+
+✅ تم حفظ 172 ملف بنجاح!
+🎉 المشروع جاهز للنشر والإطلاق!
+
+========================================
