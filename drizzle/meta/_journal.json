@@ -36,6 +36,13 @@
       "when": 1763443299945,
       "tag": "0004_kind_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1764528223074,
+      "tag": "0005_lyrical_zodiak",
+      "breakpoints": true
     }
   ]
 }

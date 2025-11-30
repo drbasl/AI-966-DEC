@@ -17,11 +17,17 @@ import SharedPrompt from "./pages/SharedPrompt";
 import Worksheets from "./pages/Worksheets";
 import Workspace from "./pages/Workspace";
 import AIChat from "./pages/AIChat";
+import CreativeStudio from "./pages/CreativeStudio";
+import TeachersZone from "./pages/TeachersZone";
+import DevelopersHub from "./pages/DevelopersHub";
+import MainNav from "./components/MainNav";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
+    <>
+      <MainNav />
+      <Switch>
       <Route path={"/"} component={Home} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/library" component={Library} />
@@ -33,10 +39,14 @@ function Router() {
       <Route path="/worksheets" component={Worksheets} />
       <Route path="/workspace" component={Workspace} />
       <Route path="/ai-chat" component={AIChat} />
+      <Route path="/creative-studio" component={CreativeStudio} />
+      <Route path="/teachers-zone" component={TeachersZone} />
+      <Route path="/developers-hub" component={DevelopersHub} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
-    </Switch>
+      </Switch>
+    </>
   );
 }
 

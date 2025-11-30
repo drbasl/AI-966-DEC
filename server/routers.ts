@@ -217,6 +217,52 @@ export const appRouter = router({
           response,
         };
       }),
+
+    // Public chat endpoint for ChatRaqim (no authentication required)
+    publicChat: publicProcedure
+      .input(
+        z.object({
+          message: z.string(),
+          conversationHistory: z.array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          ).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          // Build messages array for the AI
+          const messages = [
+            {
+              role: "system" as const,
+              content: "أنت رقيم، مساعد ذكي ومفيد. أجب على أسئلة المستخدمين بطريقة ودية ومهنية. تحدث بالعربية عندما يتحدث المستخدم بالعربية وبالإنجليزية عندما يتحدث بالإنجليزية.",
+            },
+            // Add conversation history if provided
+            ...(input.conversationHistory || []).map(msg => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+            // Add current user message
+            {
+              role: "user" as const,
+              content: input.message,
+            },
+          ];
+
+          const response = await invokeLLM({ messages });
+
+          const content = typeof response.choices[0].message.content === 'string'
+            ? response.choices[0].message.content
+            : JSON.stringify(response.choices[0].message.content);
+
+          return { response: content };
+        } catch (error) {
+          console.error("Error in public chat:", error);
+          throw new Error("فشل في الحصول على الرد. الرجاء المحاولة مرة أخرى.");
+        }
+      }),
   }),
 
   savedPrompts: router({
