@@ -11,7 +11,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sparkles, Copy, RefreshCw, Loader2, Save, Share2, FileText, Code, Palette, TrendingUp, BookOpen, MessageSquare, Download, FileDown } from "lucide-react";
+import { Sparkles, Copy, RefreshCw, Loader2, Save, Share2, FileText, Code, Palette, TrendingUp, BookOpen, MessageSquare, Download, FileDown, Check } from "lucide-react";
 import { Twitter, Send } from "lucide-react";
 import {
   DropdownMenu,
@@ -87,10 +87,17 @@ export default function PromptGenerator({
     }
   };
 
+  const [isCopied, setIsCopied] = useState(false);
+
   const handleCopy = async () => {
     if (generateMutation.data?.enhancedPrompt) {
       await navigator.clipboard.writeText(generateMutation.data.enhancedPrompt);
-      toast.success("تم نسخ البرومبت!");
+      setIsCopied(true);
+      toast.success("✅ تم نسخ البرومبت بنجاح!", {
+        description: "يمكنك الآن لصقه في أي أداة ذكاء اصطناعي",
+        duration: 3000,
+      });
+      setTimeout(() => setIsCopied(false), 3000);
     }
   };
 
@@ -297,16 +304,32 @@ export default function PromptGenerator({
 
         {/* Base Prompt Input */}
         <div className="space-y-2">
-          <Label htmlFor="base-prompt" className="text-base font-semibold">
-            البرومبت الأساسي
-          </Label>
-          <Textarea
-            id="base-prompt"
-            placeholder="اكتب طلبك هنا... مثال: اكتب لي مقال عن الذكاء الاصطناعي"
-            value={basePrompt}
-            onChange={(e) => setBasePrompt(e.target.value)}
-            className={`min-h-[120px] text-base resize-none bg-input border-primary/20 focus:border-primary/50 ${isAnimating ? 'animate-fill-pulse' : ''}`}
-          />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="base-prompt" className="text-base font-semibold">
+              ✍️ البرومبت الأساسي
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              {basePrompt.length} حرف
+            </span>
+          </div>
+          <div className="relative">
+            <Textarea
+              id="base-prompt"
+              placeholder="اكتب طلبك هنا... مثال: اكتب لي مقال عن الذكاء الاصطناعي"
+              value={basePrompt}
+              onChange={(e) => setBasePrompt(e.target.value)}
+              className={`min-h-[120px] text-base resize-none bg-input border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${isAnimating ? 'animate-fill-pulse' : ''}`}
+            />
+            {basePrompt.length > 0 && (
+              <button
+                onClick={() => setBasePrompt("")}
+                className="absolute top-2 left-2 p-1 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                title="مسح النص"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Usage Type */}
@@ -410,63 +433,115 @@ export default function PromptGenerator({
         {/* Generate Button */}
         <Button
           size="lg"
-          className="w-full text-lg py-6 neon-glow hover:shadow-lg hover:shadow-primary/50 transition-all"
+          className="w-full text-lg py-6 neon-glow hover:shadow-xl hover:shadow-primary/50 hover:scale-[1.02] transition-all duration-300 font-bold"
           onClick={handleGenerate}
-          disabled={generateMutation.isPending}
+          disabled={generateMutation.isPending || !basePrompt.trim()}
         >
           {generateMutation.isPending ? (
             <>
               <Loader2 className="ml-2 w-5 h-5 animate-spin" />
-              جاري التوليد...
+              <span className="animate-pulse">جاري التوليد...</span>
             </>
           ) : (
             <>
-              <Sparkles className="ml-2 w-5 h-5" />
-              توليد البرومبت المحسَّن الآن
+              <Sparkles className="ml-2 w-5 h-5 animate-pulse" />
+              ✨ توليد البرومبت المحسَّن الآن
             </>
           )}
         </Button>
 
+        {/* Helpful Hint */}
+        {!generateMutation.data && basePrompt.trim() && (
+          <div className="flex items-start gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
+            <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <p className="text-muted-foreground">
+              <span className="font-semibold text-foreground">نصيحة:</span> اختر نوع الاستخدام المناسب للحصول على أفضل نتيجة. يمكنك أيضاً تفعيل الخيارات الإضافية لتخصيص البرومبت.
+            </p>
+          </div>
+        )}
+
         {/* Result Box */}
         {generateMutation.data && (
-          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Label className="text-base font-semibold">البرومبت النهائي المقترح</Label>
-            <div className="relative">
-              <div className="bg-muted/50 p-4 rounded-lg border border-primary/30 min-h-[150px] max-h-[400px] overflow-y-auto">
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Check className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <Label className="text-lg font-bold text-green-500">✨ تم التوليد بنجاح!</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  الخطوة التالية: انسخ البرومبت واستخدمه في أداة الذكاء الاصطناعي المفضلة لديك
+                </p>
+              </div>
+            </div>
+            <div className="relative group">
+              <div
+                className="bg-gradient-to-br from-muted/50 to-muted/30 p-5 rounded-lg border-2 border-primary/40 min-h-[150px] max-h-[400px] overflow-y-auto shadow-lg cursor-pointer hover:border-primary/60 transition-all"
+                onDoubleClick={handleCopy}
+                title="انقر مرتين للنسخ السريع"
+              >
+                <p className="text-[15px] leading-[1.8] whitespace-pre-wrap max-w-[700px]">
                   {generateMutation.data.enhancedPrompt}
                 </p>
               </div>
+
+              {/* Quick Copy Hint */}
+              <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="bg-background/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-muted-foreground border border-border">
+                  💡 انقر مرتين للنسخ السريع
+                </div>
+              </div>
               
               <div className="space-y-2 mt-3">
-                <div className="flex gap-2">
+                {/* Primary Actions - Mobile Optimized */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <Button
                     variant="outline"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
+                    className={`border-primary/30 hover:bg-primary/10 hover:scale-105 transition-all col-span-2 md:col-span-1 ${isCopied ? 'bg-green-500/20 border-green-500/50' : ''}`}
                     onClick={handleCopy}
                   >
-                    <Copy className="ml-2 w-4 h-4" />
-                    نسخ
+                    {isCopied ? (
+                      <>
+                        <Check className="ml-2 w-4 h-4 text-green-500" />
+                        <span className="text-green-500 font-semibold">تم النسخ!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="ml-2 w-4 h-4" />
+                        <span className="hidden sm:inline">نسخ البرومبت</span>
+                        <span className="sm:hidden">نسخ</span>
+                      </>
+                    )}
                   </Button>
 
                   <Button
                     variant="outline"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
+                    className="border-primary/30 hover:bg-primary/10 hover:scale-105 transition-all"
                     onClick={handleSave}
                     disabled={savePromptMutation.isPending}
                   >
-                    <Save className="ml-2 w-4 h-4" />
-                    حفظ
+                    {savePromptMutation.isPending ? (
+                      <Loader2 className="ml-2 w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="ml-2 w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">حفظ</span>
+                    <span className="sm:hidden">💾</span>
                   </Button>
 
                   <Button
                     variant="outline"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
+                    className="border-primary/30 hover:bg-primary/10 hover:scale-105 transition-all"
                     onClick={handleRegenerate}
                     disabled={generateMutation.isPending}
                   >
-                    <RefreshCw className="ml-2 w-4 h-4" />
-                    إعادة
+                    {generateMutation.isPending ? (
+                      <Loader2 className="ml-2 w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="ml-2 w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">إعادة</span>
+                    <span className="sm:hidden">🔄</span>
                   </Button>
 
                   <DropdownMenu>

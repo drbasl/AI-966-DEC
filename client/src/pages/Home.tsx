@@ -1,14 +1,11 @@
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Sparkles, Zap, TrendingUp, Send, Moon, Sun, Menu, Globe } from "lucide-react";
+import { Sparkles, Zap, TrendingUp, Send, Moon, Sun, Menu, Globe, Save } from "lucide-react";
 import PromptGenerator from "@/components/PromptGenerator";
 import PopularPrompts from "@/components/PopularPrompts";
-import LiveExamples from "@/components/LiveExamples";
-import PromptAnalyzer from "@/components/PromptAnalyzer";
 import SpecializedTemplates from "@/components/SpecializedTemplates";
 import FAQ from "@/components/FAQ";
-import Testimonials from "@/components/Testimonials";
 import LiveStats from "@/components/LiveStats";
 import BeforeAfter from "@/components/BeforeAfter";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -78,12 +75,6 @@ export default function Home() {
               <a href="#popular" className="text-sm hover:text-primary transition-colors">
                 {t("nav.popular")}
               </a>
-              <a href="#examples" className="text-sm hover:text-primary transition-colors">
-                {t("nav.examples")}
-              </a>
-              <a href="#analyzer" className="text-sm hover:text-primary transition-colors">
-                {t("nav.analyzer")}
-              </a>
               <a href="/worksheets" className="text-sm hover:text-primary transition-colors">
                 {t("nav.worksheets")}
               </a>
@@ -129,12 +120,6 @@ export default function Home() {
                     </a>
                     <a href="#popular" className="text-base hover:text-primary transition-colors py-2">
                       {t("nav.popular")}
-                    </a>
-                    <a href="#examples" className="text-base hover:text-primary transition-colors py-2">
-                      {t("nav.examples")}
-                    </a>
-                    <a href="#analyzer" className="text-base hover:text-primary transition-colors py-2">
-                      {t("nav.analyzer")}
                     </a>
                     <a href="/worksheets" className="text-base hover:text-primary transition-colors py-2">
                       {t("nav.worksheets")}
@@ -324,6 +309,114 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Features Section */}
+      <section className="py-16 bg-background">
+        <div className="container">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              {language === "ar" ? "✨ لماذا رقيم AI 966؟" : "✨ Why RaqimAI 966?"}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {language === "ar"
+                ? "نقدم لك أدوات احترافية لتحسين تجربتك مع الذكاء الاصطناعي"
+                : "We provide professional tools to enhance your AI experience"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {/* Feature 1 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Zap className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "توليد فوري" : "Instant Generation"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "احصل على برومبتات محسّنة في ثوانٍ معدودة بفضل تقنيات الذكاء الاصطناعي المتطورة"
+                  : "Get enhanced prompts in seconds with advanced AI technology"}
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "تخصيص شامل" : "Full Customization"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "خيارات متعددة للتحكم في اللهجة، الأمثلة، والتعقيد حسب احتياجاتك"
+                  : "Multiple options to control tone, examples, and complexity"}
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Globe className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "متوافق مع كل الأدوات" : "Universal Compatibility"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "يعمل مع ChatGPT، Gemini، Claude، وجميع أدوات الذكاء الاصطناعي الأخرى"
+                  : "Works with ChatGPT, Gemini, Claude, and all AI tools"}
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Save className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "حفظ ومشاركة" : "Save & Share"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "احفظ برومبتاتك المفضلة وشاركها مع الآخرين بكل سهولة"
+                  : "Save your favorite prompts and share them easily"}
+              </p>
+            </div>
+
+            {/* Feature 5 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <TrendingUp className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "نتائج أفضل" : "Better Results"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "احصل على إجابات أكثر دقة وشمولية من أدوات الذكاء الاصطناعي"
+                  : "Get more accurate and comprehensive AI responses"}
+              </p>
+            </div>
+
+            {/* Feature 6 */}
+            <div className="group p-6 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Moon className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">
+                {language === "ar" ? "تجربة مريحة" : "Comfortable Experience"}
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {language === "ar"
+                  ? "واجهة نظيفة مع دعم الوضع الداكن والفاتح والتصميم المتجاوب"
+                  : "Clean interface with dark/light modes and responsive design"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Popular Prompts Section */}
       <section id="popular" className="py-16 bg-muted/30">
         <div className="container">
@@ -353,45 +446,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Live Examples Section */}
-      <section id="examples" className="py-16">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              {t("home.liveExamplesTitle")}
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              {t("home.liveExamplesSubtitle")}
-            </p>
-          </div>
-          <LiveExamples />
-        </div>
-      </section>
-
-      {/* Prompt Analyzer Section */}
-      <section id="analyzer" className="py-16 bg-muted/30">
-        <div className="container max-w-4xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              {t("home.analyzerTitle")}
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              {t("home.analyzerSubtitle")}
-            </p>
-          </div>
-          <PromptAnalyzer />
-        </div>
-      </section>
-
       {/* Specialized Templates Section */}
       <section id="specialized-templates" className="py-16 bg-muted/30">
         <div className="container max-w-6xl">
           <SpecializedTemplates onSelectTemplate={handleSpecializedTemplateSelect} />
         </div>
       </section>
-
-      {/* Testimonials Section */}
-      <Testimonials />
 
       {/* Before After Section */}
       <BeforeAfter />

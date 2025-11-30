@@ -1,25 +1,99 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, MessageSquare, Sparkles, Send, Trash2, Bot, User } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { toast } from "sonner";
-import { trpc } from "@/lib/trpc";
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Send, Bot, User, Sparkles, SplitSquareHorizontal, Paperclip, Mic, Loader2, X } from 'lucide-react';
+import OpenAI from "openai";
 
-interface Message {
-  role: "user" | "assistant";
+// Define the structure for messages
+interface ChatMessage {
+  id: number;
+  role: 'user' | 'system' | 'assistant';
   content: string;
+  model: string;
 }
 
-export default function Workspace() {
-  const { language } = useLanguage();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+export default function AIWorkspace() {
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
 
-  const chatMutation = trpc.chat.publicChat.useMutation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // رسالة الترحيب الأولية
+  const initialMessages: ChatMessage[] = useMemo(() => [
+    { id: 1, role: 'system', content: 'يا هلا! 👋 أنا رقيم.. مساعدك الذكي. آمرني، وش تبي ننجز اليوم؟ (كتابة، تحليل، برمجة، أو سوالف مفيدة).', model: 'Raqim AI' },
+  ], []);
+
+  const [messages, setMessages] = useState(initialMessages);
+
+  // الدستور الجديد لرقيم (System Prompt) - تم وضعه في دالة ليتم إرساله مع كل طلب
+  const getSystemInstruction = () => `أنت "رقيم" - نموذج ذكاء اصطناعي متقدم للمستخدمين العرب والسعوديين.
+
+═══════════════════════════════════════════════════════════
+🎯 **منهجية التفكير**
+═══════════════════════════════════════════════════════════
+
+**لكل سؤال، اتبع هذا:**
+1. حلل السياق والنية الحقيقية للمستخدم
+2. قدم إجابة منظمة شاملة ومفيدة
+3. استخدم الحقائق الحديثة (إذا كانت ضمن معرفتك)
+
+═══════════════════════════════════════════════════════════
+✅ **معايير الجودة**
+═══════════════════════════════════════════════════════════
+
+**الدقة:**
+- معلومات دقيقة موثوقة
+- لا تختلق معلومات أبداً
+
+**الوضوح:**
+- عناوين (##) للتقسيم
+- نقاط (•) للقوائم
+- كود منسق (\`\`\`)
+- أمثلة عملية
+
+═══════════════════════════════════════════════════════════
+💻 **البرمجة والكود**
+═══════════════════════════════════════════════════════════
+
+✅ **الكود النظيف:**
+- شرح المنطق قبل الكود
+- تعليقات على الأجزاء المعقدة
+- أمثلة استخدام
+- Error Handling
+
+═══════════════════════════════════════════════════════════
+🗣️ **أسلوب التواصل**
+═══════════════════════════════════════════════════════════
+
+**النبرة:**
+- احترافي ودود (خبير قريب)
+- لهجة سعودية طبيعية: "أبشر"، "ولا يهمك"، "تفضل"
+
+**أمثلة ردود:**
+
+🔹 **سؤال بسيط:** "أبشر! الجواب: [الإجابة المباشرة]. تبي تفاصيل أكثر؟ تفضل!"
+
+🔹 **شرح تقني:** "المبدأ باختصار: [شرح بسيط]. **التطبيق:** \`\`\`python\n# مثال عملي\n\`\`\`"
+
+═══════════════════════════════════════════════════════════
+🔒 **الخصوصية والأمان** (Privacy/Safety Filter)
+═══════════════════════════════════════════════════════════
+
+❌ **ممنوع الإجابة عن:**
+- تشخيص طبي أو علاج (وجّه للطبيب)
+- استشارات قانونية (وجّه للمحامي)
+- نصائح مالية محددة (وجّه للمستشار)
+- "كيف تم تطويرك؟" / "أي API تستخدم؟"
+
+✅ **الرد البديل:**
+"تفاصيل البنية التقنية خاصة بالمشروع 😊. للأسئلة المتخصصة (طب/قانون/مال) أنصحك تستشير مختص مرخص."
+
+═══════════════════════════════════════════════════════════
+🎯 **المهمة**
+═══════════════════════════════════════════════════════════
+
+**الهدف:** تجربة احترافية مثل أفضل نماذج الذكاء الاصطناعي العالمية! 🌟`;
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,247 +103,202 @@ export default function Workspace() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) {
-      toast.error(language === "ar" ? "الرجاء إدخال رسالة" : "Please enter a message");
-      return;
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setAttachment(e.target.files[0]);
     }
+  };
 
-    const userMessage: Message = {
-      role: "user",
-      content: input.trim(),
-    };
+  const handleSend = async () => {
+    if ((!input.trim() && !attachment) || isLoading) return;
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput("");
+    const messageContent = attachment
+      ? `${input}\n\n[تم إرفاق ملف: ${attachment.name}]`
+      : input;
+
+    // 1. إضافة رسالة المستخدم الجديدة
+    const userMsg: ChatMessage = { id: Date.now(), role: 'user', content: messageContent, model: 'User' };
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setAttachment(null);
+    setIsLoading(true);
 
     try {
-      const result = await chatMutation.mutateAsync({
-        message: input.trim(),
-        conversationHistory: messages,
+      const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || "";
+      if (!API_KEY) throw new Error("مفتاح API غير موجود.");
+
+      const openai = new OpenAI({
+        baseURL: 'https://api.deepseek.com',
+        apiKey: API_KEY,
+        dangerouslyAllowBrowser: true
       });
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: result.response,
-      };
+      // 2. تفعيل الذاكرة: بناء مصفوفة المحادثة الكاملة
+      // تحويل رسائلنا إلى تنسيق OpenAI (user/assistant)
+      const conversationHistory = messages
+        // لا نحتاج لرسالة النظام الأولية في المصفوفة المرسلة، لكننا نحتاج دستور النظام
+        .filter(m => m.id !== initialMessages[0].id)
+        .map(m => ({
+            role: m.role === 'system' ? 'assistant' : m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
+        }))
+        // إضافة رسالة المستخدم الحالية
+        .concat([{ role: 'user', content: messageContent }]);
 
-      setMessages([...newMessages, assistantMessage]);
-    } catch (error) {
-      toast.error(language === "ar" ? "فشل في الحصول على الرد" : "Failed to get response");
-      console.error(error);
-    }
-  };
+      // 3. إرسال الدستور والمحادثة
+      const completion = await openai.chat.completions.create({
+        messages: [
+          { role: "system", content: getSystemInstruction() },
+          ...conversationHistory as any
+        ],
+        model: "deepseek-chat",
+      });
 
-  const handleClear = () => {
-    setMessages([]);
-    toast.success(language === "ar" ? "تم مسح المحادثة" : "Chat cleared");
-  };
+      const responseText = completion.choices[0].message.content || "لم يصل رد.";
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      // 4. إضافة الرد
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: 'system',
+        content: responseText,
+        model: 'Raqim AI'
+      }]);
+
+    } catch (error: any) {
+      console.error("Error:", error);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: 'system',
+        content: `عذراً، حدث خطأ تقني: ${error.message}`,
+        model: 'System Error'
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 h-screen flex flex-col">
+    <div className="flex flex-col h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
       {/* Header */}
-      <div className="text-center mb-6">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="p-3 rounded-full bg-gradient-to-br from-violet-500 to-purple-500">
-            <Sparkles className="w-8 h-8 text-white" />
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+            <Bot size={20} className="text-indigo-600" />
+            <span className="font-bold text-gray-800">Raqim AI 🧠</span>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-            {language === "ar" ? "ChatRaqim" : "ChatRaqim"}
-          </h1>
+          <span className="text-xs font-medium px-2 py-1 bg-green-50 text-green-600 rounded-full flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            متصل
+          </span>
         </div>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          {language === "ar"
-            ? "دردشة ذكية مباشرة مع رقيم - مساعدك الشخصي بالذكاء الاصطناعي"
-            : "Smart chat directly with Raqim - Your personal AI assistant"}
-        </p>
+
+        <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+          <SplitSquareHorizontal size={18} />
+          <span className="hidden md:inline">نافذة جديدة</span>
+        </button>
       </div>
 
-      {/* Chat Card */}
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              {language === "ar" ? "محادثة مباشرة" : "Live Chat"}
-            </CardTitle>
-            <CardDescription>
-              {language === "ar"
-                ? "اكتب رسالتك واحصل على رد فوري من رقيم"
-                : "Type your message and get instant response from Raqim"}
-            </CardDescription>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClear}
-            disabled={messages.length === 0}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            {language === "ar" ? "مسح" : "Clear"}
-          </Button>
-        </CardHeader>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+              ${msg.role === 'user' ? 'bg-indigo-600' : 'bg-indigo-600'}`}>
+              {msg.role === 'user' ? <User size={20} className="text-white" /> : <Sparkles size={20} className="text-white" />}
+            </div>
 
-        <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-muted/30 rounded-lg">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                <Bot className="w-16 h-16 mb-4 opacity-50" />
-                <p className="text-lg font-medium">
-                  {language === "ar" ? "ابدأ محادثة جديدة" : "Start a new conversation"}
-                </p>
-                <p className="text-sm mt-2">
-                  {language === "ar"
-                    ? "اكتب رسالتك في الأسفل للبدء"
-                    : "Type your message below to start"}
-                </p>
-              </div>
-            )}
+            <div className={`max-w-[80%] p-4 rounded-2xl leading-relaxed text-sm md:text-base shadow-sm whitespace-pre-wrap dir-rtl
+              ${msg.role === 'user'
+                ? 'bg-indigo-600 text-white rounded-tr-none'
+                : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}`}>
 
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-2`}
-              >
-                <div
-                  className={`flex gap-3 max-w-[80%] ${
-                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                  }`}
-                >
-                  <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                      msg.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-violet-500 text-white"
-                    }`}
-                  >
-                    {msg.role === "user" ? (
-                      <User className="w-4 h-4" />
-                    ) : (
-                      <Bot className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div
-                    className={`px-4 py-3 rounded-2xl ${
-                      msg.role === "user"
-                        ? "bg-blue-500 text-white rounded-tr-sm"
-                        : "bg-violet-100 dark:bg-violet-900/30 text-foreground rounded-tl-sm"
-                    }`}
-                  >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                  </div>
+              {msg.role === 'system' && (
+                <div className="text-xs font-bold text-indigo-600 mb-2 flex items-center gap-1">
+                  {msg.model}
                 </div>
-              </div>
-            ))}
-
-            {chatMutation.isPending && (
-              <div className="flex justify-start animate-in slide-in-from-bottom-2">
-                <div className="flex gap-3 max-w-[80%]">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="px-4 py-3 rounded-2xl bg-violet-100 dark:bg-violet-900/30 rounded-tl-sm">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">
-                        {language === "ar" ? "رقيم يكتب..." : "Raqim is typing..."}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <div className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={language === "ar" ? "اكتب رسالتك هنا..." : "Type your message here..."}
-              className="min-h-[80px] resize-none"
-              disabled={chatMutation.isPending}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={chatMutation.isPending || !input.trim()}
-              size="lg"
-              className="self-end min-w-[100px]"
-            >
-              {chatMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  {language === "ar" ? "إرسال" : "Send"}
-                </>
               )}
-            </Button>
+
+              {msg.content}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        ))}
 
-      {/* Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Card className="border-violet-200 dark:border-violet-800">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-600" />
-              {language === "ar" ? "ذكي ومتطور" : "Smart & Advanced"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {language === "ar"
-                ? "تقنية ذكاء اصطناعي متقدمة لردود دقيقة"
-                : "Advanced AI technology for accurate responses"}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex gap-4">
+             <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
+               <Sparkles size={20} className="text-white" />
+             </div>
+             <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex items-center gap-2">
+               <Loader2 size={18} className="animate-spin text-indigo-600" />
+               <span className="text-sm text-gray-500">رقيم يفكر بعمق...</span>
+             </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        <Card className="border-blue-200 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-blue-600" />
-              {language === "ar" ? "سياق المحادثة" : "Conversation Context"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {language === "ar"
-                ? "يتذكر السياق الكامل للمحادثة"
-                : "Remembers full conversation context"}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Input Area */}
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="relative max-w-4xl mx-auto">
 
-        <Card className="border-purple-200 dark:border-purple-800">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Bot className="w-4 h-4 text-purple-600" />
-              {language === "ar" ? "ردود فورية" : "Instant Responses"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {language === "ar"
-                ? "احصل على ردود سريعة ودقيقة"
-                : "Get fast and accurate responses"}
-            </p>
-          </CardContent>
-        </Card>
+          {attachment && (
+            <div className="absolute bottom-full left-0 mb-2 ml-2 bg-blue-50 text-indigo-700 px-3 py-1.5 rounded-lg border border-blue-100 flex items-center gap-2 shadow-sm text-xs font-medium animate-fadeIn">
+              <Paperclip size={12} />
+              <span className="max-w-[150px] truncate">{attachment.name}</span>
+              <button
+                onClick={() => setAttachment(null)}
+                className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="اكتب رسالتك لـ رقيم..."
+            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none text-right min-h-[60px] max-h-[200px]"
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+            disabled={isLoading}
+          />
+
+          <div className="absolute left-3 bottom-3 flex items-center gap-2">
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            <button
+              onClick={handleFileClick}
+              className={`p-2 transition-colors ${attachment ? 'text-indigo-600 bg-indigo-50 rounded-full' : 'text-gray-400 hover:text-gray-600'}`}
+              title="إرفاق ملف"
+            >
+              <Paperclip size={18} />
+            </button>
+
+            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <Mic size={18} />
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={isLoading || (!input.trim() && !attachment)}
+              className={`p-2 rounded-lg transition-all ${input.trim() || attachment ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            >
+              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,10 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, Sparkles } from "lucide-react";
+import { Loader2, Send, User, Sparkles, Copy, RefreshCw, Edit2, Check, ThumbsUp, ThumbsDown, StopCircle, Download, FileJson, FileText, MoreVertical } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { Streamdown } from "streamdown";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 /**
  * Message type matching server-side LLM Message interface
@@ -33,6 +40,11 @@ export type AIChatBoxProps = {
   isLoading?: boolean;
 
   /**
+   * Optional callback to stop the AI generation
+   */
+  onStop?: () => void;
+
+  /**
    * Placeholder text for the input field
    */
   placeholder?: string;
@@ -57,6 +69,12 @@ export type AIChatBoxProps = {
    * Click to send directly
    */
   suggestedPrompts?: string[];
+
+  /**
+   * Suggested follow-up questions to display after AI responses
+   * These are context-aware suggestions based on the conversation
+   */
+  suggestedFollowUps?: string[];
 };
 
 /**
@@ -114,13 +132,17 @@ export function AIChatBox({
   messages,
   onSendMessage,
   isLoading = false,
+  onStop,
   placeholder = "Type your message...",
   className,
   height = "600px",
   emptyStateMessage = "Start a conversation with AI",
   suggestedPrompts,
+  suggestedFollowUps,
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputAreaRef = useRef<HTMLFormElement>(null);
@@ -128,6 +150,49 @@ export function AIChatBox({
 
   // Filter out system messages
   const displayMessages = messages.filter((msg) => msg.role !== "system");
+
+  // Copy message handler
+  const handleCopyMessage = async (content: string, index: number) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  // Export handlers
+  const downloadFile = (content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      messages: displayMessages,
+    };
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadFile(jsonString, `chat-export-${timestamp}.json`, "application/json");
+  };
+
+  const handleExportMarkdown = () => {
+    let markdown = `# محادثة رقيم AI\n\n`;
+    markdown += `تاريخ التصدير: ${new Date().toLocaleString("ar-SA")}\n\n---\n\n`;
+
+    displayMessages.forEach((message, index) => {
+      const role = message.role === "user" ? "👤 المستخدم" : "🤖 رقيم AI";
+      markdown += `## ${role}\n\n${message.content}\n\n---\n\n`;
+    });
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadFile(markdown, `chat-export-${timestamp}.md`, "text/markdown");
+  };
 
   // Calculate min-height for last assistant message to push user message to top
   const [minHeightForLastMessage, setMinHeightForLastMessage] = useState(0);
@@ -196,6 +261,38 @@ export function AIChatBox({
       )}
       style={{ height }}
     >
+      {/* Header with Export Menu */}
+      {displayMessages.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">محادثة رقيم AI</span>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleExportJSON} className="cursor-pointer">
+                <FileJson className="w-4 h-4 ml-2" />
+                تصدير كـ JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportMarkdown} className="cursor-pointer">
+                <FileText className="w-4 h-4 ml-2" />
+                تصدير كـ Markdown
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-muted-foreground text-xs" disabled>
+                <Download className="w-3 h-3 ml-2" />
+                {displayMessages.length} رسالة
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div ref={scrollAreaRef} className="flex-1 overflow-hidden">
         {displayMessages.length === 0 ? (
@@ -234,51 +331,128 @@ export function AIChatBox({
                 return (
                   <div
                     key={index}
-                    className={cn(
-                      "flex gap-3",
-                      message.role === "user"
-                        ? "justify-end items-start"
-                        : "justify-start items-start"
-                    )}
-                    style={
-                      shouldApplyMinHeight
-                        ? { minHeight: `${minHeightForLastMessage}px` }
-                        : undefined
-                    }
+                    className="group"
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
                   >
-                    {message.role === "assistant" && (
-                      <div className="size-8 shrink-0 mt-1 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Sparkles className="size-4 text-primary" />
-                      </div>
-                    )}
-
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-lg px-4 py-2.5",
+                        "flex gap-3",
                         message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
+                          ? "justify-end items-start"
+                          : "justify-start items-start"
                       )}
+                      style={
+                        shouldApplyMinHeight
+                          ? { minHeight: `${minHeightForLastMessage}px` }
+                          : undefined
+                      }
                     >
-                      {message.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <Streamdown>{message.content}</Streamdown>
+                      {message.role === "assistant" && (
+                        <div className="size-8 shrink-0 mt-1 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Sparkles className="size-4 text-primary" />
                         </div>
-                      ) : (
-                        <p className="whitespace-pre-wrap text-sm">
-                          {message.content}
-                        </p>
+                      )}
+
+                      <div className="flex flex-col gap-1 max-w-[80%]">
+                        <div
+                          className={cn(
+                            "rounded-lg px-4 py-2.5",
+                            message.role === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-foreground"
+                          )}
+                        >
+                          {message.role === "assistant" ? (
+                            <MarkdownRenderer content={message.content} />
+                          ) : (
+                            <p className="whitespace-pre-wrap text-sm">
+                              {message.content}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        {hoveredIndex === index && (
+                          <div className={cn(
+                            "flex gap-1 px-1 animate-in fade-in slide-in-from-top-1 duration-200",
+                            message.role === "user" ? "justify-end" : "justify-start"
+                          )}>
+                            <button
+                              onClick={() => handleCopyMessage(message.content, index)}
+                              className="p-1.5 rounded hover:bg-accent transition-colors"
+                              title="نسخ"
+                            >
+                              {copiedIndex === index ? (
+                                <Check className="w-3.5 h-3.5 text-green-500" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                              )}
+                            </button>
+                            {message.role === "assistant" && (
+                              <>
+                                <button
+                                  className="p-1.5 rounded hover:bg-accent transition-colors"
+                                  title="إعادة التوليد"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+                                </button>
+                                <button
+                                  className="p-1.5 rounded hover:bg-accent transition-colors"
+                                  title="إعجاب"
+                                >
+                                  <ThumbsUp className="w-3.5 h-3.5 text-muted-foreground" />
+                                </button>
+                                <button
+                                  className="p-1.5 rounded hover:bg-accent transition-colors"
+                                  title="عدم إعجاب"
+                                >
+                                  <ThumbsDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                </button>
+                              </>
+                            )}
+                            {message.role === "user" && (
+                              <button
+                                className="p-1.5 rounded hover:bg-accent transition-colors"
+                                title="تعديل"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {message.role === "user" && (
+                        <div className="size-8 shrink-0 mt-1 rounded-full bg-secondary flex items-center justify-center">
+                          <User className="size-4 text-secondary-foreground" />
+                        </div>
                       )}
                     </div>
-
-                    {message.role === "user" && (
-                      <div className="size-8 shrink-0 mt-1 rounded-full bg-secondary flex items-center justify-center">
-                        <User className="size-4 text-secondary-foreground" />
-                      </div>
-                    )}
                   </div>
                 );
               })}
+
+              {/* Suggested Follow-ups */}
+              {!isLoading && suggestedFollowUps && suggestedFollowUps.length > 0 && displayMessages.length > 0 && (
+                <div className="flex flex-col gap-2 px-4 py-2">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3" />
+                    أسئلة مقترحة للمتابعة:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedFollowUps.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => onSendMessage(suggestion)}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 text-left"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {isLoading && (
                 <div
@@ -290,10 +464,28 @@ export function AIChatBox({
                   }
                 >
                   <div className="size-8 shrink-0 mt-1 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Sparkles className="size-4 text-primary" />
+                    <Sparkles className="size-4 text-primary animate-pulse" />
                   </div>
-                  <div className="rounded-lg bg-muted px-4 py-2.5">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  <div className="flex flex-col gap-2">
+                    <div className="rounded-lg bg-muted px-4 py-2.5 flex items-center gap-1.5">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                      </div>
+                      <span className="text-xs text-muted-foreground mr-2">رقيم AI يكتب...</span>
+                    </div>
+                    {onStop && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onStop}
+                        className="self-start h-7 px-3 gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                      >
+                        <StopCircle className="w-3.5 h-3.5" />
+                        إيقاف التوليد
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -303,33 +495,56 @@ export function AIChatBox({
       </div>
 
       {/* Input Area */}
-      <form
-        ref={inputAreaRef}
-        onSubmit={handleSubmit}
-        className="flex gap-2 p-4 border-t bg-background/50 items-end"
-      >
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="flex-1 max-h-32 resize-none min-h-9"
-          rows={1}
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!input.trim() || isLoading}
-          className="shrink-0 h-[38px] w-[38px]"
+      <div className="border-t bg-background/50">
+        {/* Input hints bar */}
+        {input.trim() && !isLoading && (
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2 text-xs text-muted-foreground border-b border-border/50">
+            <Sparkles className="w-3 h-3" />
+            <span>اضغط Enter للإرسال • Shift+Enter لسطر جديد • {input.length} حرف</span>
+          </div>
+        )}
+
+        <form
+          ref={inputAreaRef}
+          onSubmit={handleSubmit}
+          className="flex gap-2 p-4 items-end"
         >
-          {isLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-4" />
-          )}
-        </Button>
-      </form>
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              className="w-full max-h-32 resize-none min-h-10 pr-12"
+              rows={1}
+            />
+            {input.length > 0 && (
+              <div className="absolute left-2 bottom-2 flex items-center gap-1">
+                <span className={cn(
+                  "text-xs transition-colors",
+                  input.length > 2000 ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  {input.length}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!input.trim() || isLoading}
+            className="shrink-0 h-10 w-10 transition-all hover:scale-105"
+          >
+            {isLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
