@@ -1,0 +1,41 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+        </linearGradient>
+        <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+    
+    <!-- Hexagon Background -->
+    <path d="M 60 10 L 100 35 L 100 85 L 60 110 L 20 85 L 20 35 Z" 
+          fill="none" stroke="url(#grad)" stroke-width="2" opacity="0.3"/>
+    
+    <!-- Arabic Letter ر (Ra) -->
+    <g transform="translate(60, 60)">
+        <!-- Main vertical line -->
+        <path d="M -10 -25 L -10 20" 
+              stroke="url(#grad)" 
+              stroke-width="8" 
+              stroke-linecap="round"
+              fill="none"
+              filter="url(#glow)"/>
+        
+        <!-- Top curve -->
+        <path d="M -10 -25 Q 0 -30 10 -25 Q 20 -18 20 -5 Q 20 3 15 10" 
+              stroke="url(#grad)" 
+              stroke-width="8" 
+              stroke-linecap="round"
+              fill="none"
+              filter="url(#glow)"/>
+        
+        <!-- Dot below -->
+        <circle cx="-3" cy="32" r="5" fill="url(#grad)" filter="url(#glow)"/>
+    </g>
+</svg>
