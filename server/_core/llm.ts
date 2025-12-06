@@ -1,4 +1,8 @@
 import { ENV } from "./env";
+import { setDefaultAutoSelectFamily } from "node:net";
+
+// Force IPv4 to avoid IPv6 connection issues
+setDefaultAutoSelectFamily(false);
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -226,9 +230,9 @@ const getProvider = (override?: LLMProvider): LLMProvider => {
   };
 
   if (desired && available[desired]) return desired;
+  if (available.deepseek) return "deepseek";
   if (available.openai) return "openai";
   if (available.anthropic) return "anthropic";
-  if (available.deepseek) return "deepseek";
   if (available.forge) return "forge";
   return "gemini";
 };
@@ -289,14 +293,14 @@ const getModel = (provider?: LLMProvider): string => {
     case "openai":
       return "gpt-4o-mini";
     case "gemini":
-      return "gemini-2.5-flash";
+      return "gemini-2.0-flash-exp";
     case "anthropic":
       return "claude-3-5-sonnet-latest";
     case "deepseek":
       return "deepseek-chat";
     case "forge":
     default:
-      return "gemini-2.5-flash";
+      return "gemini-2.0-flash-exp";
   }
 };
 
@@ -353,7 +357,39 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  const provider = getProvider(params.provider);
+  let provider = getProvider(params.provider);
+  const originalProvider = provider;
+
+  // Try with primary provider first
+  try {
+    return await attemptInvoke(provider, params);
+  } catch (error) {
+    console.error(`[LLM] ${provider} failed:`, error);
+
+    // Fallback logic: Try Gemini -> OpenAI
+    if (provider !== "gemini" && ENV.geminiApiKey) {
+      console.log("[LLM] Falling back to Gemini");
+      provider = "gemini";
+      try {
+        return await attemptInvoke(provider, params);
+      } catch (fallbackError) {
+        console.error("[LLM] Gemini fallback also failed:", fallbackError);
+      }
+    }
+
+    // Final fallback to OpenAI if available
+    if (provider !== "openai" && ENV.openaiApiKey) {
+      console.log("[LLM] Final fallback to OpenAI");
+      provider = "openai";
+      return await attemptInvoke(provider, params);
+    }
+
+    // If all fails, throw original error
+    throw error;
+  }
+}
+
+async function attemptInvoke(provider: LLMProvider, params: InvokeParams): Promise<InvokeResult> {
   const apiKey = getApiKey(provider, params.apiKeyOverride);
   assertApiKey(provider, params.apiKeyOverride);
 
@@ -400,19 +436,21 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    authorization: `Bearer ${apiKey}`,
+  };
+
   const response = await fetch(resolveApiUrl(provider, apiBaseOverride), {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+      `LLM invoke failed (${provider}): ${response.status} ${response.statusText} – ${errorText}`
     );
   }
 

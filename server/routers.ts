@@ -6,6 +6,11 @@ import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
 import { handleChatRequest } from "./_core/chat";
 import * as db from "./db";
+import { SYSTEM_PROMPTS } from "./_core/prompts";
+import { checkRateLimit } from "./_core/rateLimit";
+import { buildSystemPrompt } from "./_core/systemPrompt";
+import { prepareMessagesForLLM } from "./_core/contextManager";
+import { streamChat } from "./_core/streaming";
 
 const messageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool", "function"]),
@@ -219,6 +224,7 @@ export const appRouter = router({
       }),
 
     // Public chat endpoint for ChatRaqim (no authentication required)
+    // مع دعم إدارة السياق الذكي والبرومبتات المحسنة
     publicChat: publicProcedure
       .input(
         z.object({
@@ -229,29 +235,45 @@ export const appRouter = router({
               content: z.string(),
             })
           ).optional(),
+          mode: z.enum(['code', 'education', 'creative', 'analysis', 'general']).optional(),
+          userPreferences: z.object({
+            responseLength: z.enum(['short', 'medium', 'detailed']).optional(),
+            formalityLevel: z.enum(['casual', 'professional', 'formal']).optional(),
+          }).optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         try {
-          // Build messages array for the AI
-          const messages = [
-            {
-              role: "system" as const,
-              content: "أنت رقيم، مساعد ذكي ومفيد. أجب على أسئلة المستخدمين بطريقة ودية ومهنية. تحدث بالعربية عندما يتحدث المستخدم بالعربية وبالإنجليزية عندما يتحدث بالإنجليزية.",
-            },
-            // Add conversation history if provided
-            ...(input.conversationHistory || []).map(msg => ({
-              role: msg.role as "user" | "assistant",
-              content: msg.content,
-            })),
-            // Add current user message
-            {
-              role: "user" as const,
-              content: input.message,
-            },
-          ];
+          // التحقق من Rate Limiting
+          const clientIp = ctx.req.ip || ctx.req.socket.remoteAddress || 'unknown';
+          checkRateLimit(clientIp);
 
-          const response = await invokeLLM({ messages });
+          // 1. بناء System Prompt ذكي بناءً على السياق
+          const systemPrompt = buildSystemPrompt({
+            mode: input.mode || 'general',
+            userPreferences: input.userPreferences,
+          });
+
+          // 2. إدارة السياق بذكاء
+          const optimizedMessages = prepareMessagesForLLM(
+            input.conversationHistory || [],
+            input.message,
+            systemPrompt,
+            {
+              maxTokens: 4000,
+              maxMessages: 20,
+              preserveRecent: 6,
+              summarizeOld: true,
+            }
+          );
+
+          // 3. استدعاء LLM مع الرسائل المحسّنة
+          const response = await invokeLLM({ 
+            messages: optimizedMessages.map(m => ({
+              role: m.role,
+              content: m.content,
+            }))
+          });
 
           const content = typeof response.choices[0].message.content === 'string'
             ? response.choices[0].message.content
@@ -260,7 +282,48 @@ export const appRouter = router({
           return { response: content };
         } catch (error) {
           console.error("Error in public chat:", error);
-          throw new Error("فشل في الحصول على الرد. الرجاء المحاولة مرة أخرى.");
+          throw new Error(error instanceof Error ? error.message : "فشل في الحصول على الرد. الرجاء المحاولة مرة أخرى.");
+        }
+      }),
+
+    // Public chat with streaming support
+    publicChatStream: publicProcedure
+      .input(
+        z.object({
+          message: z.string(),
+          conversationHistory: z.array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          ).optional(),
+          mode: z.enum(['code', 'education', 'creative', 'analysis', 'general']).optional(),
+          userPreferences: z.object({
+            responseLength: z.enum(['short', 'medium', 'detailed']).optional(),
+            formalityLevel: z.enum(['casual', 'professional', 'formal']).optional(),
+          }).optional(),
+        })
+      )
+      .mutation(async function* ({ input, ctx }) {
+        try {
+          // التحقق من Rate Limiting
+          const clientIp = ctx.req.ip || ctx.req.socket.remoteAddress || 'unknown';
+          checkRateLimit(clientIp);
+
+          // استخدام دالة streaming من الملف المخصص
+          for await (const chunk of streamChat({
+            message: input.message,
+            conversationHistory: input.conversationHistory,
+            mode: input.mode,
+            userPreferences: input.userPreferences,
+          })) {
+            yield chunk;
+          }
+        } catch (error) {
+          yield {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'حدث خطأ في الحصول على الرد'
+          };
         }
       }),
   }),
@@ -444,21 +507,8 @@ export const appRouter = router({
     analyze: publicProcedure
       .input(z.object({ prompt: z.string() }))
       .mutation(async ({ input }) => {
-        const systemPrompt = `أنت خبير في تحليل البرومبتات. حلل البرومبت التالي وقدم:
-1. تقييم من 1-10
-2. نقاط القوة (3-5 نقاط)
-3. نقاط الضعف (3-5 نقاط)
-4. اقتراحات للتحسين (3-5 اقتراحات)
-5. نسخة محسّنة من البرومبت
-
-الرد يجب أن يكون بصيغة JSON بالشكل التالي:
-{
-  "score": رقم,
-  "strengths": ["نقطة 1", "نقطة 2"],
-  "weaknesses": ["نقطة 1", "نقطة 2"],
-  "suggestions": ["اقتراح 1", "اقتراح 2"],
-  "improvedVersion": "البرومبت المحسّن"
-}`;
+        // Use centralized prompt
+        const systemPrompt = SYSTEM_PROMPTS.PROMPT_ANALYZER;
 
         try {
           const response = await invokeLLM({
@@ -515,14 +565,7 @@ export const appRouter = router({
         const { basePrompt, usageType, options } = input;
 
         // Build system prompt based on usage type
-        const usageTypePrompts: Record<string, string> = {
-          social: "أنت خبير في كتابة محتوى السوشيال ميديا والتغريدات الجذابة والمؤثرة.",
-          code: "أنت خبير برمجة متمرس في كتابة الأكواد النظيفة والموثقة بشكل احترافي.",
-          education: "أنت معلم خبير متخصص في شرح المفاهيم التعليمية بطريقة واضحة ومبسطة.",
-          crypto: "أنت محلل كريبتو وتداول محترف متخصص في تحليل الأسواق والعملات الرقمية.",
-          article: "أنت كاتب محتوى محترف متخصص في كتابة المقالات الطويلة والشاملة.",
-          exam: "أنت خبير في إعداد الأسئلة والامتحانات والمراجعات التعليمية.",
-        };
+        const usageTypePrompts = SYSTEM_PROMPTS.USAGE_TYPES;
 
         // Build enhancement instructions
         const enhancements: string[] = [];
@@ -548,23 +591,19 @@ export const appRouter = router({
 
         enhancements.push(complexityInstructions[options.complexity]);
 
-        // Create the meta-prompt
+        // Create the meta-prompt using centralized prompts
         const systemPrompt = `${usageTypePrompts[usageType]}
 
-مهمتك هي تحسين البرومبت التالي وجعله أكثر فعالية واحترافية.
+${SYSTEM_PROMPTS.PROMPT_ENHANCER(usageType)}
 
 متطلبات التحسين:
 ${enhancements.map((e, i) => `${i + 1}. ${e}`).join("\n")}
 
-قم بإعادة صياغة البرومبت بشكل محسّن ومنظم، مع الحفاظ على الهدف الأساسي وإضافة التفاصيل المناسبة.
-يجب أن يكون البرومبت المحسّن جاهزاً للاستخدام مباشرة مع أي نموذج ذكاء اصطناعي.
-
 البرومبت الأساسي المطلوب تحسينه:
-"${basePrompt}"
-
-قم بكتابة البرومبت المحسّن فقط، بدون أي مقدمات أو شروحات أو عناوين مثل "البرومبت المحسّن:" - ابدأ مباشرة بالمحتوى.`;
+"${basePrompt}"`;
 
         try {
+          // Force DeepSeek for prompt generation (better quality for Arabic)
           const response = await invokeLLM({
             messages: [
               {
@@ -576,6 +615,7 @@ ${enhancements.map((e, i) => `${i + 1}. ${e}`).join("\n")}
                 content: "قم بتحسين البرومبت الآن:",
               },
             ],
+            provider: "deepseek", // Always use DeepSeek for prompt generation
           });
 
           const content = response.choices[0]?.message?.content;
@@ -608,27 +648,15 @@ ${enhancements.map((e, i) => `${i + 1}. ${e}`).join("\n")}
         })
       )
       .mutation(async ({ ctx, input }) => {
-        // Generate worksheet content using LLM
-        const prompt = `أنت مساعد تعليمي متخصص في إنشاء أوراق العمل.
-
-المهمة: إنشاء ورقة عمل تعليمية بالمواصفات التالية:
-- عنوان الدرس: ${input.lessonTitle}
-- نوع الأسئلة: ${input.questionType}
-- عدد الأسئلة: ${input.questionCount}
-- المرحلة الدراسية: ${input.gradeLevel}
-- اللغة: ${input.language === "ar" ? "العربية" : "الإنجليزية"}
-${input.teacherName ? `- اسم المعلم/ة: ${input.teacherName}` : ""}
-${input.schoolName ? `- اسم المدرسة: ${input.schoolName}` : ""}
-${input.sourceText ? `\n\nالنص المصدر:\n${input.sourceText}` : ""}
-
-يرجى إنشاء ورقة عمل احترافية ومنسقة بشكل جيد مع الأسئلة والإجابات (في صفحة منفصلة).`;
+        // Use centralized prompt builder
+        const prompt = SYSTEM_PROMPTS.buildWorksheetPrompt(input);
 
         try {
           const response = await invokeLLM({
             messages: [
               {
                 role: "system",
-                content: "أنت مساعد تعليمي متخصص في إنشاء أوراق العمل التعليمية.",
+                content: SYSTEM_PROMPTS.WORKSHEET_GEN,
               },
               {
                 role: "user",

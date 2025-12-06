@@ -15,7 +15,7 @@ export const ENV = {
   deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? "",
   deepseekApiBase: process.env.DEEPSEEK_API_BASE ?? "",
   anthropicApiBase: process.env.ANTHROPIC_API_BASE ?? "",
-  // Primary LLM provider: "openai" | "gemini" | "forge"
+  // Primary LLM provider: "openai" | "gemini" | "forge" | "deepseek" | "anthropic"
   llmProvider: process.env.LLM_PROVIDER ?? "gemini",
   defaultLlmProvider: process.env.DEFAULT_LLM_PROVIDER ?? "",
 };
