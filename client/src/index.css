@@ -1,10 +1,13 @@
-/* IBM Plex Sans Arabic - الخط الاحترافي */
+/* RAQIM AI Brand Identity - الهوية البصرية */
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* خطوط الهوية البصرية */
+  --font-primary: "Outfit", "Cairo", sans-serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -47,17 +50,21 @@
   /* ═══════════════════════════════════════════════════════════
    * ألوان AI 966 الرسمية - Light Mode (الوضع الفاتح)
    * ═══════════════════════════════════════════════════════════ */
+  /* خطوط الهوية البصرية الرسمية - RAQIM AI */
+  --font-stack: "Outfit", "Cairo", sans-serif;
+  --font-arabic: "Cairo", sans-serif;
+  --font-english: "Outfit", sans-serif;
 
-  /* Brand Colors - AI 966 */
-  --brand-indigo: oklch(55% 0.18 260);      /* نيلي رئيسي */
-  --brand-indigo-light: oklch(65% 0.16 260); /* نيلي فاتح */
-  --brand-gold: oklch(68% 0.17 75);          /* ذهبي */
-  --brand-gold-bright: oklch(75% 0.15 75);   /* ذهبي ساطع */
-  --brand-emerald: oklch(58% 0.16 155);      /* أخضر زمردي */
+  /* Brand Colors - RAQIM AI 966 (Light Mode) */
+  --brand-primary: #0B57D0;           /* أزرق رئيسي */
+  --brand-secondary: #4285F4;         /* أزرق ثانوي */
+  --brand-tertiary: #0072FF;          /* أزرق تدرج */
+  --brand-accent: #00C6FF;            /* سماوي لامع */
+  --brand-gradient: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
 
   /* Light Mode Colors */
-  --primary: oklch(55% 0.18 260); /* نيلي رئيسي */
-  --primary-foreground: oklch(98% 0.005 260);
+  --primary: #0B57D0; /* أزرق رئيسي */
+  --primary-foreground: #FFFFFF;
   --sidebar-primary: oklch(55% 0.18 260);
   --sidebar-primary-foreground: oklch(98% 0.005 260);
   --chart-1: oklch(55% 0.18 260);
@@ -66,23 +73,23 @@
   --chart-4: oklch(65% 0.16 260);
   --chart-5: oklch(75% 0.15 75);
   --radius: 0.75rem;
-  --background: oklch(98% 0.005 75); /* خلفية فاتحة */
-  --foreground: oklch(10% 0.005 75); /* نص داكن */
-  --card: oklch(100% 0 0); /* بطاقة بيضاء */
-  --card-foreground: oklch(18% 0.008 75);
-  --popover: oklch(100% 0 0);
-  --popover-foreground: oklch(18% 0.008 75);
-  --secondary: oklch(96% 0.008 75);
-  --secondary-foreground: oklch(18% 0.008 75);
-  --muted: oklch(96% 0.008 75); /* خافت */
-  --muted-foreground: oklch(60% 0.018 75); /* نص خافت */
-  --accent: oklch(68% 0.17 75); /* ذهبي */
-  --accent-foreground: oklch(20% 0.01 75);
-  --destructive: oklch(50% 0.2 25);
-  --destructive-foreground: oklch(98% 0.005 25);
-  --border: oklch(93% 0.010 75); /* حدود فاتحة */
-  --input: oklch(96% 0.008 75);
-  --ring: oklch(55% 0.18 260);
+  --background: #F0F4F9; /* خلفية فاتحة */
+  --foreground: #111827; /* نص داكن */
+  --card: #FFFFFF; /* بطاقة بيضاء */
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+  --muted: #F9FAFB; /* خافت */
+  --muted-foreground: #4B5563; /* نص خافت */
+  --accent: #00C6FF; /* سماوي لامع */
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E7EB; /* حدود فاتحة */
+  --input: #FFFFFF;
+  --ring: #0B57D0;
   --sidebar: oklch(100% 0 0);
   --sidebar-foreground: oklch(18% 0.008 75);
   --sidebar-accent: oklch(96% 0.008 75);
@@ -174,29 +181,36 @@
 
 .dark {
   /* ═══════════════════════════════════════════════════════════
-   * ألوان AI 966 الرسمية - Dark Mode (الوضع الداكن)
+   * ألوان RAQIM AI 966 - Dark Mode (الوضع الداكن)
    * ═══════════════════════════════════════════════════════════ */
-  --primary: oklch(70% 0.15 260); /* نيلي فاتح للوضع الداكن */
-  --primary-foreground: oklch(10% 0.005 75);
-  --sidebar-primary: oklch(70% 0.15 260);
-  --sidebar-primary-foreground: oklch(10% 0.005 75);
-  --background: oklch(10% 0.005 75); /* خلفية داكنة */
-  --foreground: oklch(98% 0.005 75); /* نص فاتح */
-  --card: oklch(18% 0.008 75); /* بطاقة داكنة */
-  --card-foreground: oklch(98% 0.005 75);
-  --popover: oklch(18% 0.008 75);
-  --popover-foreground: oklch(98% 0.005 75);
-  --secondary: oklch(28% 0.010 75);
-  --secondary-foreground: oklch(98% 0.005 75);
-  --muted: oklch(28% 0.010 75);
-  --muted-foreground: oklch(75% 0.015 75);
-  --accent: oklch(75% 0.15 75); /* ذهبي ساطع */
-  --accent-foreground: oklch(10% 0.005 75);
-  --destructive: oklch(55% 0.22 25);
-  --destructive-foreground: oklch(98% 0.005 25);
-  --border: oklch(28% 0.010 75);
-  --input: oklch(18% 0.008 75);
-  --ring: oklch(70% 0.15 260);
+  /* Brand Colors - Dark Mode */
+  --brand-primary: #E87A52;           /* برتقالي دافئ */
+  --brand-secondary: #F09268;         /* برتقالي فاتح */
+  --brand-tertiary: #FF8B5A;          /* برتقالي ساطع */
+  --brand-accent: #FFB088;            /* برتقالي باستيل */
+  --brand-gradient: linear-gradient(135deg, #E87A52 0%, #FFB088 100%);
+
+  --primary: #E87A52; /* برتقالي دافئ */
+  --primary-foreground: #0F1115;
+  --sidebar-primary: #E87A52;
+  --sidebar-primary-foreground: #0F1115;
+  --background: #0F1115; /* خلفية داكنة */
+  --foreground: #EDEDED; /* نص فاتح */
+  --card: #181A20; /* بطاقة داكنة */
+  --card-foreground: #EDEDED;
+  --popover: #181A20;
+  --popover-foreground: #EDEDED;
+  --secondary: #1F2127;
+  --secondary-foreground: #EDEDED;
+  --muted: #252830;
+  --muted-foreground: #9B9C9E;
+  --accent: #FFB088; /* برتقالي باستيل */
+  --accent-foreground: #0F1115;
+  --destructive: #F87171;
+  --destructive-foreground: #EDEDED;
+  --border: #2A2D35;
+  --input: #181A20;
+  --ring: #E87A52;
   --chart-1: oklch(70% 0.15 260);
   --chart-2: oklch(65% 0.14 155);
   --chart-3: oklch(75% 0.15 75);
@@ -224,19 +238,19 @@
   /* Arabic Font - RTL */
   html[dir="rtl"] {
     direction: rtl;
-    font-family: 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Cairo', sans-serif;
+    font-family: var(--font-stack);
   }
 
   /* English Font - LTR */
   html[dir="ltr"] {
     direction: ltr;
-    font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+    font-family: var(--font-stack);
   }
 
   /* Default to Arabic */
   html:not([dir]) {
     direction: rtl;
-    font-family: 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Cairo', sans-serif;
+    font-family: var(--font-stack);
   }
 
   body {
@@ -401,23 +415,51 @@
     box-shadow: 0 4px 16px oklch(70% 0.15 260 / 0.25);
   }
 
-  /* Text Styles - AI 966 */
+  /* Text Styles - RAQIM AI 966 */
   .neon-glow-text,
   .gradient-text,
   .neon-text {
-    background: linear-gradient(135deg, var(--brand-indigo), var(--brand-emerald));
+    background: linear-gradient(135deg, var(--brand-primary, #0B57D0), var(--brand-accent, #00C6FF));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    animation: gradient-shift 3s ease infinite;
   }
 
   .dark .neon-glow-text,
   .dark .gradient-text,
   .dark .neon-text {
-    background: linear-gradient(135deg, oklch(75% 0.14 260), oklch(70% 0.15 155));
+    background: linear-gradient(135deg, var(--brand-primary, #E87A52), var(--brand-accent, #FFB088));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+      background-size: 200% 200%;
+    }
+    50% {
+      background-position: 100% 50%;
+      background-size: 200% 200%;
+    }
+  }
+
+  /* Enhanced Hero Title Styles */
+  .hero-title-glow {
+    text-shadow:
+      0 0 20px var(--brand-primary),
+      0 0 40px var(--brand-accent);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .dark .hero-title-glow {
+    text-shadow:
+      0 0 20px var(--brand-primary),
+      0 0 40px var(--brand-accent),
+      0 0 60px var(--brand-secondary);
   }
 
   /* Legacy Cyber Glow (for compatibility) */

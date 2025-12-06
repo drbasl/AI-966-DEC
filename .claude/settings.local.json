@@ -7,7 +7,19 @@
       "Bash(NODE_ENV=development npx tsx:*)",
       "Bash(powershell -Command \"Get-ChildItem ''c:\\Users\\basel\\Downloads\\raqim_ai_966_v1.zip'' | Select-Object Name, Length, LastWriteTime\")",
       "Bash(powershell -Command \"Get-ChildItem -Exclude ''node_modules'',''.git'' | Compress-Archive -DestinationPath ''../raqim_ai_966_v1.zip'' -Force\")",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(dir:*)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(ping:*)",
+      "Bash(curl:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(set NODE_ENV=production)",
+      "Bash(node dist/index.js:*)"
     ],
     "deny": [],
     "ask": []

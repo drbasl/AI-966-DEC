@@ -24,12 +24,16 @@ import {
   Download,
   Sparkles,
   Users,
-  Target
+  Target,
+  Shield,
+  Check,
+  Loader2
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { generateFallbackPrompt, type EnhancementOptions } from "@/utils/promptTemplates";
 
 export default function TeachersZone() {
   const { language } = useLanguage();
@@ -51,10 +55,33 @@ export default function TeachersZone() {
 
   const [generatedLessonPlan, setGeneratedLessonPlan] = useState("");
   const [generatedQuiz, setGeneratedQuiz] = useState("");
+  const [usedFallbackLesson, setUsedFallbackLesson] = useState(false);
+  const [usedFallbackQuiz, setUsedFallbackQuiz] = useState(false);
 
   // tRPC mutations
-  const generateLessonPlanMutation = trpc.prompt.generate.useMutation();
-  const generateQuizMutation = trpc.prompt.generate.useMutation();
+  const generateLessonPlanMutation = trpc.prompt.generate.useMutation({
+    onSuccess: (data) => {
+      setGeneratedLessonPlan(data.enhancedPrompt);
+      setUsedFallbackLesson(false);
+      toast.success(language === "ar" ? "✨ تم إنشاء خطة الدرس بنجاح باستخدام AI!" : "✨ Lesson plan created successfully using AI!");
+    },
+    onError: (error) => {
+      console.error("API Error:", error);
+      // سيتم معالجة الخطأ في handleGenerateLessonPlan
+    }
+  });
+
+  const generateQuizMutation = trpc.prompt.generate.useMutation({
+    onSuccess: (data) => {
+      setGeneratedQuiz(data.enhancedPrompt);
+      setUsedFallbackQuiz(false);
+      toast.success(language === "ar" ? "✨ تم إنشاء الاختبار بنجاح باستخدام AI!" : "✨ Quiz created successfully using AI!");
+    },
+    onError: (error) => {
+      console.error("API Error:", error);
+      // سيتم معالجة الخطأ في handleGenerateQuiz
+    }
+  });
 
   // Teachers' tools and resources
   const teacherTools = [
@@ -176,12 +203,15 @@ export default function TeachersZone() {
       return;
     }
 
-    try {
-      const promptText = language === "ar"
-        ? `أنشئ خطة درس احترافية للمادة: ${lessonPlan.subject}، الموضوع: ${lessonPlan.topic}، المرحلة: ${lessonPlan.grade}، المدة: ${lessonPlan.duration} دقيقة. الأهداف: ${lessonPlan.objectives || 'أهداف تعليمية شاملة'}`
-        : `Create a professional lesson plan for subject: ${lessonPlan.subject}, topic: ${lessonPlan.topic}, grade: ${lessonPlan.grade}, duration: ${lessonPlan.duration} minutes. Objectives: ${lessonPlan.objectives || 'comprehensive learning objectives'}`;
+    // إعادة تعيين حالة Fallback
+    setUsedFallbackLesson(false);
 
-      const result = await generateLessonPlanMutation.mutateAsync({
+    const promptText = language === "ar"
+      ? `أنشئ خطة درس احترافية للمادة: ${lessonPlan.subject}، الموضوع: ${lessonPlan.topic}، المرحلة: ${lessonPlan.grade}، المدة: ${lessonPlan.duration} دقيقة. الأهداف: ${lessonPlan.objectives || 'أهداف تعليمية شاملة'}`
+      : `Create a professional lesson plan for subject: ${lessonPlan.subject}, topic: ${lessonPlan.topic}, grade: ${lessonPlan.grade}, duration: ${lessonPlan.duration} minutes. Objectives: ${lessonPlan.objectives || 'comprehensive learning objectives'}`;
+
+    try {
+      await generateLessonPlanMutation.mutateAsync({
         basePrompt: promptText,
         usageType: "education",
         options: {
@@ -192,11 +222,36 @@ export default function TeachersZone() {
           engaging: true,
         }
       });
-
-      setGeneratedLessonPlan(result.enhancedPrompt);
-      toast.success(language === "ar" ? "تم إنشاء خطة الدرس بنجاح" : "Lesson plan created successfully");
+      // النجاح يتم معالجته في onSuccess callback
     } catch (error) {
-      toast.error(language === "ar" ? "فشل في توليد خطة الدرس" : "Failed to generate lesson plan");
+      console.error("API Error:", error);
+
+      // استخدام النظام الاحتياطي
+      toast.info(language === "ar" ? "جاري استخدام النظام الاحتياطي الذكي..." : "Using smart fallback system...", {
+        description: language === "ar" ? "API غير متاح حالياً، سنستخدم القوالب الاحترافية" : "API unavailable, using professional templates",
+      });
+
+      const enhancementOptions: EnhancementOptions = {
+        humanTone: true,
+        examples: true,
+        keyPoints: true,
+        engaging: true,
+        complexity: "medium",
+      };
+
+      const fallbackPrompt = generateFallbackPrompt(
+        promptText,
+        "education",
+        enhancementOptions
+      );
+
+      setGeneratedLessonPlan(fallbackPrompt);
+      setUsedFallbackLesson(true);
+
+      toast.success(language === "ar" ? "✅ تم إنشاء خطة الدرس باستخدام النظام الاحتياطي!" : "✅ Lesson plan created using fallback system!", {
+        description: language === "ar" ? "النظام الذكي أنشأ خطة درس احترافية لك" : "Smart system created a professional lesson plan",
+        duration: 4000,
+      });
     }
   };
 
@@ -208,12 +263,15 @@ export default function TeachersZone() {
       return;
     }
 
-    try {
-      const promptText = language === "ar"
-        ? `أنشئ اختبار تعليمي للمادة: ${quizConfig.subject}، الموضوع: ${quizConfig.topic}، عدد الأسئلة: ${quizConfig.questionCount}، المستوى: ${quizConfig.difficulty}`
-        : `Create an educational quiz for subject: ${quizConfig.subject}, topic: ${quizConfig.topic}, number of questions: ${quizConfig.questionCount}, difficulty: ${quizConfig.difficulty}`;
+    // إعادة تعيين حالة Fallback
+    setUsedFallbackQuiz(false);
 
-      const result = await generateQuizMutation.mutateAsync({
+    const promptText = language === "ar"
+      ? `أنشئ اختبار تعليمي للمادة: ${quizConfig.subject}، الموضوع: ${quizConfig.topic}، عدد الأسئلة: ${quizConfig.questionCount}، المستوى: ${quizConfig.difficulty}`
+      : `Create an educational quiz for subject: ${quizConfig.subject}, topic: ${quizConfig.topic}, number of questions: ${quizConfig.questionCount}, difficulty: ${quizConfig.difficulty}`;
+
+    try {
+      await generateQuizMutation.mutateAsync({
         basePrompt: promptText,
         usageType: "exam",
         options: {
@@ -224,11 +282,36 @@ export default function TeachersZone() {
           engaging: true,
         }
       });
-
-      setGeneratedQuiz(result.enhancedPrompt);
-      toast.success(language === "ar" ? "تم إنشاء الاختبار بنجاح" : "Quiz created successfully");
+      // النجاح يتم معالجته في onSuccess callback
     } catch (error) {
-      toast.error(language === "ar" ? "فشل في توليد الاختبار" : "Failed to generate quiz");
+      console.error("API Error:", error);
+
+      // استخدام النظام الاحتياطي
+      toast.info(language === "ar" ? "جاري استخدام النظام الاحتياطي الذكي..." : "Using smart fallback system...", {
+        description: language === "ar" ? "API غير متاح حالياً، سنستخدم القوالب الاحترافية" : "API unavailable, using professional templates",
+      });
+
+      const enhancementOptions: EnhancementOptions = {
+        humanTone: false,
+        examples: true,
+        keyPoints: true,
+        engaging: true,
+        complexity: quizConfig.difficulty === "easy" ? "simple" : quizConfig.difficulty === "hard" ? "advanced" : "medium",
+      };
+
+      const fallbackPrompt = generateFallbackPrompt(
+        promptText,
+        "exam",
+        enhancementOptions
+      );
+
+      setGeneratedQuiz(fallbackPrompt);
+      setUsedFallbackQuiz(true);
+
+      toast.success(language === "ar" ? "✅ تم إنشاء الاختبار باستخدام النظام الاحتياطي!" : "✅ Quiz created using fallback system!", {
+        description: language === "ar" ? "النظام الذكي أنشأ اختبار احترافي لك" : "Smart system created a professional quiz",
+        duration: 4000,
+      });
     }
   };
 
@@ -392,12 +475,85 @@ export default function TeachersZone() {
                 </Select>
               </div>
 
-              <Button onClick={handleGenerateLessonPlan} className="w-full" size="lg">
-                <Sparkles className="w-4 h-4 mr-2" />
-                {language === "ar" ? "توليد خطة الدرس" : "Generate Lesson Plan"}
+              <Button
+                onClick={handleGenerateLessonPlan}
+                className="w-full"
+                size="lg"
+                disabled={generateLessonPlanMutation.isPending}
+              >
+                {generateLessonPlanMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {language === "ar" ? "جاري التوليد..." : "Generating..."}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "توليد خطة الدرس" : "Generate Lesson Plan"}
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
+
+          {/* Result Display */}
+          {generatedLessonPlan && (
+            <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Check className="w-5 h-5 text-green-500" />
+                    {language === "ar" ? "خطة الدرس المولدة" : "Generated Lesson Plan"}
+                  </CardTitle>
+                  {usedFallbackLesson && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full">
+                      <Shield className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        {language === "ar" ? "النظام الاحتياطي" : "Fallback System"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/50 p-4 rounded-lg border max-h-[500px] overflow-y-auto">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {generatedLessonPlan}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedLessonPlan);
+                      toast.success(language === "ar" ? "تم النسخ!" : "Copied!");
+                    }}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "نسخ" : "Copy"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      const blob = new Blob([generatedLessonPlan], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "lesson-plan.txt";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success(language === "ar" ? "تم التصدير!" : "Exported!");
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "تصدير" : "Export"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Quiz Tab */}
@@ -481,9 +637,23 @@ export default function TeachersZone() {
                 </Select>
               </div>
 
-              <Button onClick={handleGenerateQuiz} className="w-full" size="lg">
-                <Sparkles className="w-4 h-4 mr-2" />
-                {language === "ar" ? "توليد الاختبار" : "Generate Quiz"}
+              <Button
+                onClick={handleGenerateQuiz}
+                className="w-full"
+                size="lg"
+                disabled={generateQuizMutation.isPending}
+              >
+                {generateQuizMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {language === "ar" ? "جاري التوليد..." : "Generating..."}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "توليد الاختبار" : "Generate Quiz"}
+                  </>
+                )}
               </Button>
 
               <div className="pt-4 border-t">
@@ -499,6 +669,65 @@ export default function TeachersZone() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Result Display */}
+          {generatedQuiz && (
+            <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Check className="w-5 h-5 text-green-500" />
+                    {language === "ar" ? "الاختبار المولد" : "Generated Quiz"}
+                  </CardTitle>
+                  {usedFallbackQuiz && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full">
+                      <Shield className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        {language === "ar" ? "النظام الاحتياطي" : "Fallback System"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/50 p-4 rounded-lg border max-h-[500px] overflow-y-auto">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {generatedQuiz}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedQuiz);
+                      toast.success(language === "ar" ? "تم النسخ!" : "Copied!");
+                    }}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "نسخ" : "Copy"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      const blob = new Blob([generatedQuiz], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "quiz.txt";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success(language === "ar" ? "تم التصدير!" : "Exported!");
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "تصدير" : "Export"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Resources Tab */}

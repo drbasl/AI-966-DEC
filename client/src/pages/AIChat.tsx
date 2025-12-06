@@ -3,30 +3,54 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
-import { Send, Trash2, Download, Settings2, Sparkles } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Send, Trash2, Sparkles, Copy, Check, Bot, User, Lightbulb, Code, BookOpen, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Message {
-  role: "system" | "user" | "assistant";
+  role: "user" | "assistant";
   content: string;
+  timestamp: number;
 }
 
+// اقتراحات سريعة
+const quickSuggestions = [
+  {
+    icon: Lightbulb,
+    text: "اشرح لي مفهوم معقد بطريقة بسيطة",
+    prompt: "اشرح لي مفهوم الذكاء الاصطناعي بطريقة بسيطة ومفهومة"
+  },
+  {
+    icon: Code,
+    text: "ساعدني في كتابة كود برمجي",
+    prompt: "اكتب لي مثال على كود Python بسيط"
+  },
+  {
+    icon: BookOpen,
+    text: "لخص لي موضوع معين",
+    prompt: "لخص لي أهم النقاط في موضوع التعلم الآلي"
+  },
+  {
+    icon: Zap,
+    text: "أعطني أفكار إبداعية",
+    prompt: "أعطني 5 أفكار إبداعية لمشروع تقني جديد"
+  }
+];
+
 export default function AIChat() {
+  const { theme } = useTheme();
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [provider, setProvider] = useState<"deepseek" | "openai" | "gemini">("deepseek");
-  const [model, setModel] = useState("deepseek-chat");
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(2048);
-  const [systemPrompt, setSystemPrompt] = useState("أنت مساعد ذكي متخصص في اللغة العربية.");
-  const [showSettings, setShowSettings] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatMutation = trpc.chat.send.useMutation();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const chatMutation = trpc.chat.publicChat.useMutation();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,7 +58,31 @@ export default function AIChat() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
+
+  // تحميل البرومبت من localStorage
+  useEffect(() => {
+    const savedPrompt = localStorage.getItem('chatRaqimPrompt');
+    if (savedPrompt) {
+      setInput(savedPrompt);
+      localStorage.removeItem('chatRaqimPrompt');
+      toast.success("تم تحميل البرومبت! 🎉", {
+        description: "يمكنك الآن إرساله مباشرة",
+      });
+      inputRef.current?.focus();
+    }
+  }, []);
+
+  const handleCopy = async (content: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      toast.success("تم النسخ! ✓");
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (error) {
+      toast.error("فشل النسخ");
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -42,37 +90,39 @@ export default function AIChat() {
     const userMessage: Message = {
       role: "user",
       content: input.trim(),
+      timestamp: Date.now(),
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
+    setIsTyping(true);
 
     try {
-      const apiMessages = [
-        { role: "system" as const, content: systemPrompt },
-        ...newMessages,
-      ];
+      const conversationHistory = newMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
 
       const result = await chatMutation.mutateAsync({
-        messages: apiMessages as any,
-        provider,
-        model,
+        message: input.trim(),
+        conversationHistory: conversationHistory.slice(0, -1),
       });
 
-      const responseContent = typeof result.response === 'string'
-        ? result.response
-        : (result.response as any).choices?.[0]?.message?.content || "No response";
-
+      setIsTyping(false);
       setMessages([
         ...newMessages,
         {
           role: "assistant",
-          content: typeof responseContent === 'string' ? responseContent : JSON.stringify(responseContent),
+          content: result.response,
+          timestamp: Date.now(),
         },
       ]);
     } catch (error) {
-      toast.error("حدث خطأ في إرسال الرسالة");
+      setIsTyping(false);
+      toast.error("حدث خطأ في الاتصال", {
+        description: "يرجى المحاولة مرة أخرى",
+      });
       console.error(error);
     }
   };
@@ -82,186 +132,285 @@ export default function AIChat() {
     toast.success("تم مسح المحادثة");
   };
 
-  const handleExport = () => {
-    const content = messages
-      .map((m) => `**${m.role === "user" ? "أنت" : "المساعد"}:**\n${m.content}`)
-      .join("\n\n");
-
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("تم تصدير المحادثة");
+  const handleSuggestionClick = (prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
   };
 
-  const modelOptions: Record<string, string[]> = {
-    deepseek: ["deepseek-chat", "deepseek-reasoner"],
-    openai: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
-    gemini: ["gemini-2.5-flash", "gemini-1.5-pro"],
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <div className="container mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Sparkles className="h-8 w-8 text-primary" />
-              محادثة AI متقدمة
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              تحدث مع نماذج الذكاء الاصطناعي المتقدمة
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowSettings(!showSettings)}
-            >
-              <Settings2 className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleExport}>
-              <Download className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleClear}>
-              <Trash2 className="h-5 w-5" />
-            </Button>
+    <div className={`min-h-screen transition-colors duration-500 ${
+      theme === 'dark' ? 'bg-[#0F1115]' : 'bg-[#F0F4F9]'
+    }`}>
+      {/* خلفية متحركة */}
+      {theme === 'dark' && (
+        <div className="fixed inset-0 pointer-events-none z-0"
+             style={{
+               background: `
+                 radial-gradient(circle at 15% 15%, rgba(232, 122, 82, 0.06), transparent 40%),
+                 radial-gradient(circle at 85% 85%, rgba(11, 87, 208, 0.04), transparent 40%)
+               `,
+               filter: 'blur(60px)',
+             }}
+        />
+      )}
+
+      <div className="relative z-10 container mx-auto max-w-5xl px-4 py-6 md:py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-br from-[#E87A52] to-[#FFB088]'
+                  : 'bg-gradient-to-br from-[#0B57D0] to-[#00C6FF]'
+              } shadow-lg`}>
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold font-cairo">
+                  ChatRaqim
+                </h1>
+                <p className={`text-sm ${theme === 'dark' ? 'text-[#9B9C9E]' : 'text-[#4B5563]'}`}>
+                  {language === 'ar' ? 'محادثة ذكية مع AI' : 'Smart AI Conversation'}
+                </p>
+              </div>
+            </div>
+
+            {messages.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClear}
+                className={`${
+                  theme === 'dark'
+                    ? 'border-[#2A2D35] hover:border-[#E87A52] hover:text-[#E87A52]'
+                    : 'border-[#E5E7EB] hover:border-[#0B57D0] hover:text-[#0B57D0]'
+                }`}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                مسح
+              </Button>
+            )}
           </div>
         </div>
 
-        {showSettings && (
-          <Card className="p-6 mb-6 space-y-4">
-            <h3 className="font-semibold text-lg">الإعدادات المتقدمة</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>المزود (Provider)</Label>
-                <Select value={provider} onValueChange={(v: any) => setProvider(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="deepseek">DeepSeek</SelectItem>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="gemini">Google Gemini</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>النموذج (Model)</Label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modelOptions[provider].map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>System Prompt</Label>
-              <Textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                className="min-h-[80px]"
-                placeholder="تعليمات النظام للمساعد..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Temperature: {temperature}</Label>
-              <Slider
-                value={[temperature]}
-                onValueChange={(v) => setTemperature(v[0])}
-                min={0}
-                max={2}
-                step={0.1}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Max Tokens: {maxTokens}</Label>
-              <Slider
-                value={[maxTokens]}
-                onValueChange={(v) => setMaxTokens(v[0])}
-                min={256}
-                max={8192}
-                step={256}
-              />
-            </div>
-          </Card>
-        )}
-
-        <Card className="flex flex-col h-[calc(100vh-280px)]">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Chat Container */}
+        <Card className={`shadow-2xl border-2 overflow-hidden ${
+          theme === 'dark'
+            ? 'bg-[#181A20] border-[#2A2D35]'
+            : 'bg-white border-[#E5E7EB]'
+        }`}>
+          {/* Messages Area */}
+          <div className="h-[calc(100vh-320px)] overflow-y-auto p-4 md:p-6 space-y-4">
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <div className="text-center">
-                  <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>ابدأ محادثة جديدة مع المساعد الذكي</p>
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <div className={`w-20 h-20 rounded-full mb-4 flex items-center justify-center ${
+                  theme === 'dark'
+                    ? 'bg-[#E87A52]/10'
+                    : 'bg-[#0B57D0]/10'
+                }`}>
+                  <Bot className={`w-10 h-10 ${
+                    theme === 'dark' ? 'text-[#E87A52]' : 'text-[#0B57D0]'
+                  }`} />
+                </div>
+                <h3 className="text-xl font-bold mb-2 font-cairo">
+                  {language === 'ar' ? 'مرحباً بك في ChatRaqim' : 'Welcome to ChatRaqim'}
+                </h3>
+                <p className={`text-sm mb-6 max-w-md ${
+                  theme === 'dark' ? 'text-[#9B9C9E]' : 'text-[#4B5563]'
+                }`}>
+                  {language === 'ar'
+                    ? 'ابدأ محادثة ذكية مع AI. اسأل أي شيء، واحصل على إجابات دقيقة ومفيدة'
+                    : 'Start a smart conversation with AI. Ask anything and get accurate answers'}
+                </p>
+
+                {/* اقتراحات سريعة */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
+                  {quickSuggestions.map((suggestion, i) => {
+                    const Icon = suggestion.icon;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handleSuggestionClick(suggestion.prompt)}
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-right ${
+                          theme === 'dark'
+                            ? 'bg-[#1F2127] border-[#2A2D35] hover:border-[#E87A52] hover:bg-[#E87A52]/5'
+                            : 'bg-[#F9FAFB] border-[#E5E7EB] hover:border-[#0B57D0] hover:bg-[#0B57D0]/5'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${
+                          theme === 'dark' ? 'text-[#E87A52]' : 'text-[#0B57D0]'
+                        }`} />
+                        <span className="text-sm font-medium">{suggestion.text}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
-              messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+              <>
+                {messages.map((msg, i) => (
                   <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
+                    key={i}
+                    className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"} group`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {/* Avatar */}
+                    <Avatar className={`w-10 h-10 flex-shrink-0 ${
+                      msg.role === "assistant"
+                        ? theme === 'dark'
+                          ? 'bg-gradient-to-br from-[#E87A52] to-[#FFB088]'
+                          : 'bg-gradient-to-br from-[#0B57D0] to-[#00C6FF]'
+                        : theme === 'dark'
+                          ? 'bg-[#2A2D35]'
+                          : 'bg-[#E5E7EB]'
+                    }`}>
+                      <AvatarFallback className="bg-transparent">
+                        {msg.role === "assistant" ? (
+                          <Bot className="w-5 h-5 text-white" />
+                        ) : (
+                          <User className={`w-5 h-5 ${theme === 'dark' ? 'text-[#EDEDED]' : 'text-[#111827]'}`} />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Message Content */}
+                    <div className={`flex-1 ${msg.role === "user" ? "flex justify-end" : ""}`}>
+                      <div className={`max-w-[85%] md:max-w-[75%]`}>
+                        {/* Message Bubble */}
+                        <div className={`rounded-2xl p-4 shadow-sm ${
+                          msg.role === "user"
+                            ? theme === 'dark'
+                              ? 'bg-gradient-to-br from-[#E87A52] to-[#F09268] text-white'
+                              : 'bg-gradient-to-br from-[#0B57D0] to-[#4285F4] text-white'
+                            : theme === 'dark'
+                              ? 'bg-[#1F2127] border border-[#2A2D35]'
+                              : 'bg-[#F9FAFB] border border-[#E5E7EB]'
+                        }`}>
+                          <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </p>
+                        </div>
+
+                        {/* Message Footer */}
+                        <div className={`flex items-center gap-2 mt-2 px-2 ${
+                          msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}>
+                          <span className={`text-xs ${
+                            theme === 'dark' ? 'text-[#9B9C9E]' : 'text-[#9CA3AF]'
+                          }`}>
+                            {new Date(msg.timestamp).toLocaleTimeString("ar-SA", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopy(msg.content, i)}
+                            className={`h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                              copiedIndex === i ? 'opacity-100' : ''
+                            }`}
+                          >
+                            {copiedIndex === i ? (
+                              <Check className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {/* مؤشر الكتابة */}
+                {isTyping && (
+                  <div className="flex gap-3">
+                    <Avatar className={`w-10 h-10 flex-shrink-0 ${
+                      theme === 'dark'
+                        ? 'bg-gradient-to-br from-[#E87A52] to-[#FFB088]'
+                        : 'bg-gradient-to-br from-[#0B57D0] to-[#00C6FF]'
+                    }`}>
+                      <AvatarFallback className="bg-transparent">
+                        <Bot className="w-5 h-5 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className={`rounded-2xl p-4 ${
+                      theme === 'dark'
+                        ? 'bg-[#1F2127] border border-[#2A2D35]'
+                        : 'bg-[#F9FAFB] border border-[#E5E7EB]'
+                    }`}>
+                      <div className="flex gap-1">
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          theme === 'dark' ? 'bg-[#E87A52]' : 'bg-[#0B57D0]'
+                        }`} style={{ animationDelay: '0ms' }} />
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          theme === 'dark' ? 'bg-[#E87A52]' : 'bg-[#0B57D0]'
+                        }`} style={{ animationDelay: '150ms' }} />
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          theme === 'dark' ? 'bg-[#E87A52]' : 'bg-[#0B57D0]'
+                        }`} style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </>
             )}
-            {chatMutation.isPending && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg p-4">
-                  <Spinner className="h-5 w-5" />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
           </div>
 
-          <div className="border-t p-4">
-            <div className="flex gap-2">
+          {/* Input Area */}
+          <div className={`border-t p-4 ${
+            theme === 'dark' ? 'border-[#2A2D35] bg-[#1F2127]' : 'border-[#E5E7EB] bg-[#F9FAFB]'
+          }`}>
+            <div className="flex gap-3">
               <Textarea
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="اكتب رسالتك هنا... (Enter للإرسال)"
-                className="min-h-[60px] resize-none"
+                onKeyDown={handleKeyPress}
+                placeholder={language === 'ar'
+                  ? "اكتب رسالتك هنا... (اضغط Enter للإرسال)"
+                  : "Type your message... (Press Enter to send)"}
+                className={`min-h-[60px] max-h-[200px] resize-none text-base ${
+                  theme === 'dark'
+                    ? 'bg-[#181A20] border-[#2A2D35] focus:border-[#E87A52]'
+                    : 'bg-white border-[#E5E7EB] focus:border-[#0B57D0]'
+                }`}
+                disabled={chatMutation.isPending}
               />
               <Button
                 onClick={handleSend}
                 disabled={!input.trim() || chatMutation.isPending}
-                size="icon"
-                className="h-[60px] w-[60px]"
+                className={`h-[60px] w-[60px] rounded-2xl shadow-lg transition-all ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-r from-[#E87A52] to-[#FFB088] hover:shadow-[0_10px_30px_rgba(232,122,82,0.3)]'
+                    : 'bg-gradient-to-r from-[#0B57D0] to-[#00C6FF] hover:shadow-[0_10px_30px_rgba(11,87,208,0.25)]'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <Send className="h-5 w-5" />
+                <Send className="w-5 h-5 text-white" />
               </Button>
+            </div>
+
+            {/* Hint */}
+            <div className="flex items-center gap-2 mt-3">
+              <Badge variant="outline" className={`text-xs ${
+                theme === 'dark'
+                  ? 'border-[#2A2D35] text-[#9B9C9E]'
+                  : 'border-[#E5E7EB] text-[#6B7280]'
+              }`}>
+                <Sparkles className="w-3 h-3 mr-1" />
+                Powered by RAQIM AI
+              </Badge>
             </div>
           </div>
         </Card>

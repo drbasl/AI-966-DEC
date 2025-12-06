@@ -56,8 +56,8 @@ const translations: Record<Language, Record<string, string>> = {
     "home.twitter": "تويتر",
 
     // Prompt Generator
-    "generator.title": "من فكرة بسيطة إلى برومبت احترافي",
-    "generator.subtitle": "أخبرنا بما تريد، ودعنا نصنع لك البرومبت المثالي",
+    "generator.title": "حوّل أفكارك إلى برومبتات احترافية",
+    "generator.subtitle": "أدخِل فكرتك البسيطة، واحصل على برومبت احترافي جاهز للاستخدام",
     "generator.quickExamples": "جرّب الأمثلة السريعة:",
     "generator.basePrompt": "البرومبت الأساسي",
     "generator.placeholder": "اكتب طلبك هنا... مثال: اكتب لي مقال عن الذكاء الاصطناعي",

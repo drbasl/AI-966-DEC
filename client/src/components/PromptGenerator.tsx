@@ -3,15 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sparkles, Copy, RefreshCw, Loader2, Save, Share2, FileText, Code, Palette, TrendingUp, BookOpen, MessageSquare, Download, FileDown, Check } from "lucide-react";
+import { Sparkles, Copy, RefreshCw, Loader2, Share2, FileText, Code, Palette, TrendingUp, BookOpen, MessageSquare, Download, FileDown, Check, Shield, ArrowRight } from "lucide-react";
 import { Twitter, Send } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,6 +22,8 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { generateFallbackPrompt, type EnhancementOptions } from "@/utils/promptTemplates";
+import { useLocation } from "wouter";
 
 interface PromptGeneratorProps {
   initialPrompt?: string;
@@ -35,11 +37,12 @@ interface PromptGeneratorProps {
   };
 }
 
-export default function PromptGenerator({ 
-  initialPrompt, 
-  initialUsageType, 
-  initialOptions 
+export default function PromptGenerator({
+  initialPrompt,
+  initialUsageType,
+  initialOptions
 }: PromptGeneratorProps = {}) {
+  const [, setLocation] = useLocation();
   const [basePrompt, setBasePrompt] = useState(initialPrompt || "");
   const [usageType, setUsageType] = useState<"social" | "code" | "education" | "crypto" | "article" | "exam">(initialUsageType || "social");
   const [options, setOptions] = useState(initialOptions || {
@@ -58,13 +61,46 @@ export default function PromptGenerator({
     if (initialOptions) setOptions(initialOptions);
   }, [initialPrompt, initialUsageType, initialOptions]);
 
+  const [fallbackResult, setFallbackResult] = useState<string | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
+
   const generateMutation = trpc.prompt.generate.useMutation({
     onSuccess: (data) => {
-      toast.success("تم توليد البرومبت بنجاح!");
+      setUsedFallback(false);
+      setFallbackResult(null);
+      toast.success("✨ تم توليد البرومبت بنجاح باستخدام AI!");
     },
     onError: (error) => {
-      toast.error("حدث خطأ في توليد البرومبت");
-      console.error(error);
+      console.error("API Error:", error);
+
+      // استخدام النظام الاحتياطي عند فشل API
+      toast.info("جاري استخدام النظام الاحتياطي الذكي...", {
+        description: "API غير متاح حالياً، سنستخدم القوالب الاحترافية",
+      });
+
+      // تحويل الخيارات للصيغة المطلوبة
+      const enhancementOptions: EnhancementOptions = {
+        humanTone: options.humanTone,
+        examples: options.examples,
+        keyPoints: options.keyPoints,
+        engaging: options.engaging,
+        complexity: options.complexity === "بسيط" ? "simple" : options.complexity === "متوسط" ? "medium" : "advanced",
+      };
+
+      // توليد البرومبت باستخدام النظام الاحتياطي
+      const fallbackPrompt = generateFallbackPrompt(
+        basePrompt,
+        usageType,
+        enhancementOptions
+      );
+
+      setFallbackResult(fallbackPrompt);
+      setUsedFallback(true);
+
+      toast.success("✅ تم توليد البرومبت باستخدام النظام الاحتياطي!", {
+        description: "النظام الذكي أنشأ برومبت احترافي لك",
+        duration: 4000,
+      });
     },
   });
 
@@ -78,6 +114,10 @@ export default function PromptGenerator({
       return;
     }
 
+    // إعادة تعيين حالة Fallback
+    setFallbackResult(null);
+    setUsedFallback(false);
+
     if (usageType) {
       generateMutation.mutate({
         basePrompt,
@@ -90,8 +130,10 @@ export default function PromptGenerator({
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = async () => {
-    if (generateMutation.data?.enhancedPrompt) {
-      await navigator.clipboard.writeText(generateMutation.data.enhancedPrompt);
+    const promptToCopy = usedFallback ? fallbackResult : generateMutation.data?.enhancedPrompt;
+
+    if (promptToCopy) {
+      await navigator.clipboard.writeText(promptToCopy);
       setIsCopied(true);
       toast.success("✅ تم نسخ البرومبت بنجاح!", {
         description: "يمكنك الآن لصقه في أي أداة ذكاء اصطناعي",
@@ -111,34 +153,12 @@ export default function PromptGenerator({
     }
   };
 
-  const savePromptMutation = trpc.savedPrompts.create.useMutation({
-    onSuccess: () => {
-      toast.success("تم حفظ البرومبت في مكتبتك الشخصية!");
-    },
-    onError: (error) => {
-      if (error.message.includes("UNAUTHORIZED")) {
-        toast.error("يجب تسجيل الدخول لحفظ البرومبتات");
-      } else {
-        toast.error("حدث خطأ في حفظ البرومبت");
-      }
-    },
-  });
-
-  const handleSave = () => {
-    if (generateMutation.data?.enhancedPrompt) {
-      const title = basePrompt.slice(0, 50) + (basePrompt.length > 50 ? "..." : "");
-      savePromptMutation.mutate({
-        title,
-        basePrompt,
-        enhancedPrompt: generateMutation.data.enhancedPrompt,
-        usageType,
-      });
-    }
-  };
-
   const handleExportText = () => {
-    if (generateMutation.data?.enhancedPrompt) {
-      const content = `البرومبت الأساسي:\n${basePrompt}\n\n${"─".repeat(50)}\n\nالبرومبت المحسّن:\n${generateMutation.data.enhancedPrompt}`;
+    const promptToExport = usedFallback ? fallbackResult : generateMutation.data?.enhancedPrompt;
+
+    if (promptToExport) {
+      const systemLabel = usedFallback ? "⚡ النظام الاحتياطي" : "✨ AI";
+      const content = `البرومبت الأساسي:\n${basePrompt}\n\n${"─".repeat(50)}\n\nالبرومبت المحسّن:\n${promptToExport}\n\n${"─".repeat(50)}\nتم التوليد بواسطة: ${systemLabel}`;
       const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -153,7 +173,10 @@ export default function PromptGenerator({
   };
 
   const handleExportWord = () => {
-    if (generateMutation.data?.enhancedPrompt) {
+    const promptToExport = usedFallback ? fallbackResult : generateMutation.data?.enhancedPrompt;
+
+    if (promptToExport) {
+      const systemLabel = usedFallback ? "⚡ النظام الاحتياطي الذكي" : "✨ AI";
       const content = `
         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
         <head><meta charset="utf-8"><title>برومبت</title></head>
@@ -162,9 +185,9 @@ export default function PromptGenerator({
           <p>${basePrompt}</p>
           <hr/>
           <h2 style="color: #0ea5e9;">البرومبت المحسّن</h2>
-          <p style="white-space: pre-wrap;">${generateMutation.data.enhancedPrompt}</p>
+          <p style="white-space: pre-wrap;">${promptToExport}</p>
           <hr/>
-          <p style="color: #888; font-size: 12px;">تم التوليد بواسطة رقيم AI 966</p>
+          <p style="color: #888; font-size: 12px;">تم التوليد بواسطة ${systemLabel} | رقيم AI 966</p>
         </body>
         </html>
       `;
@@ -178,6 +201,23 @@ export default function PromptGenerator({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("تم تصدير البرومبت كملف Word!");
+    }
+  };
+
+  const handleUseChatRaqim = () => {
+    const promptToUse = usedFallback ? fallbackResult : generateMutation.data?.enhancedPrompt;
+
+    if (promptToUse) {
+      // حفظ البرومبت في localStorage
+      localStorage.setItem('chatRaqimPrompt', promptToUse);
+
+      // الانتقال إلى صفحة ChatRaqim
+      setLocation('/ai-chat');
+
+      toast.success("تم نقل البرومبت إلى ChatRaqim! 🚀", {
+        description: "يمكنك الآن إرسال البرومبت مباشرة",
+        duration: 3000,
+      });
     }
   };
 
@@ -461,18 +501,26 @@ export default function PromptGenerator({
         )}
 
         {/* Result Box */}
-        {generateMutation.data && (
+        {(generateMutation.data || usedFallback) && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
                 <Check className="w-5 h-5 text-green-500" />
               </div>
-              <div>
+              <div className="flex-1">
                 <Label className="text-lg font-bold text-green-500">✨ تم التوليد بنجاح!</Label>
                 <p className="text-xs text-muted-foreground mt-1">
                   الخطوة التالية: انسخ البرومبت واستخدمه في أداة الذكاء الاصطناعي المفضلة لديك
                 </p>
               </div>
+              {usedFallback && (
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full">
+                  <Shield className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    النظام الاحتياطي
+                  </span>
+                </div>
+              )}
             </div>
             <div className="relative group">
               <div
@@ -481,7 +529,7 @@ export default function PromptGenerator({
                 title="انقر مرتين للنسخ السريع"
               >
                 <p className="text-[15px] leading-[1.8] whitespace-pre-wrap max-w-[700px]">
-                  {generateMutation.data.enhancedPrompt}
+                  {usedFallback ? fallbackResult : generateMutation.data?.enhancedPrompt}
                 </p>
               </div>
 
@@ -494,7 +542,7 @@ export default function PromptGenerator({
               
               <div className="space-y-2 mt-3">
                 {/* Primary Actions - Mobile Optimized */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   <Button
                     variant="outline"
                     className={`border-primary/30 hover:bg-primary/10 hover:scale-105 transition-all col-span-2 md:col-span-1 ${isCopied ? 'bg-green-500/20 border-green-500/50' : ''}`}
@@ -512,21 +560,6 @@ export default function PromptGenerator({
                         <span className="sm:hidden">نسخ</span>
                       </>
                     )}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="border-primary/30 hover:bg-primary/10 hover:scale-105 transition-all"
-                    onClick={handleSave}
-                    disabled={savePromptMutation.isPending}
-                  >
-                    {savePromptMutation.isPending ? (
-                      <Loader2 className="ml-2 w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="ml-2 w-4 h-4" />
-                    )}
-                    <span className="hidden sm:inline">حفظ</span>
-                    <span className="sm:hidden">💾</span>
                   </Button>
 
                   <Button
@@ -566,87 +599,63 @@ export default function PromptGenerator({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                
-                {/* Social Share Buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
-                    onClick={() => {
-                      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-                      const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}\n\n#رقيم_AI #AI #البرومبتات #السعودية`;
-                      navigator.clipboard.writeText(text);
-                      toast.success("تم نسخ النص للمشاركة على تويتر");
-                    }}
-                  >
-                    <Twitter className="ml-2 w-4 h-4" />
-                    تويتر
-                  </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
-                    onClick={() => {
-                      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-                      const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}`;
-                      window.open(`https://t.me/share/url?url=${encodeURIComponent(siteUrl)}&text=${encodeURIComponent(text)}`, '_blank');
-                    }}
-                  >
-                    <Send className="ml-2 w-4 h-4" />
-                    تيليجرام
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 border-primary/30 hover:bg-primary/10"
-                    onClick={() => {
-                      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-                      const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}`;
-                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                    }}
-                  >
-                    <Share2 className="ml-2 w-4 h-4" />
-                    واتساب
-                  </Button>
-                </div>
-
-                {/* Share Website Button */}
+                {/* استخدام في ChatRaqim - زر بارز */}
                 <Button
-                  variant="default"
-                  className="w-full"
-                  onClick={async () => {
-                    const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-                    const shareData = {
-                      title: "رقيم AI 966 - مولّد البرومبتات الذكي",
-                      text: "🔥 اكتشف رقيم AI 966 - حسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي!",
-                      url: siteUrl,
-                    };
-
-                    // Try Web Share API first (mobile-friendly)
-                    if (navigator.share) {
-                      try {
-                        await navigator.share(shareData);
-                        toast.success("تمت المشاركة بنجاح!");
-                      } catch (err) {
-                        // User cancelled or error
-                        if ((err as Error).name !== 'AbortError') {
-                          navigator.clipboard.writeText(siteUrl);
-                          toast.success(`تم نسخ الرابط: ${siteUrl}`);
-                        }
-                      }
-                    } else {
-                      // Fallback: copy URL
-                      await navigator.clipboard.writeText(siteUrl);
-                      toast.success(`تم نسخ الرابط: ${siteUrl}`);
-                    }
-                  }}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                  onClick={handleUseChatRaqim}
                 >
-                  <Share2 className="ml-2 w-4 h-4" />
-                  مشاركة الموقع
+                  <MessageSquare className="ml-2 w-5 h-5" />
+                  استخدم في ChatRaqim
+                  <ArrowRight className="mr-2 w-5 h-5 animate-pulse" />
                 </Button>
+
+                {/* Social Share Button - Combined */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full border-primary/30 hover:bg-primary/10"
+                    >
+                      <Share2 className="ml-2 w-4 h-4" />
+                      مشاركة
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-48">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+                        const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}\n\n#رقيم_AI #AI #البرومبتات #السعودية`;
+                        navigator.clipboard.writeText(text);
+                        toast.success("تم نسخ النص للمشاركة على تويتر");
+                      }}
+                    >
+                      <Twitter className="ml-2 w-4 h-4" />
+                      تويتر
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+                        const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}`;
+                        window.open(`https://t.me/share/url?url=${encodeURIComponent(siteUrl)}&text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                    >
+                      <Send className="ml-2 w-4 h-4" />
+                      تيليجرام
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+                        const text = `🔥 اكتشف رقيم AI 966 - مولّد البرومبتات الذكي!\n\nحسّن برومبتاتك واحصل على نتائج أفضل من الذكاء الاصطناعي\n\n${siteUrl}`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                    >
+                      <Share2 className="ml-2 w-4 h-4" />
+                      واتساب
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
